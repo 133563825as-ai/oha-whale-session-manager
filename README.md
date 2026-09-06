@@ -1,14 +1,14 @@
-# dsh-session-manager
+# 哦鲸鲸会话管理插件
 
-`dsh-session-manager` is an installable DeepSeek Harness bundle for managing archived sessions and a filesystem recycle bin.
+`dsh-session-manager` 是一个 DeepSeek Harness 可安装插件，用于管理归档会话、工作区筛选和文件系统回收站。
 
 ## 功能
 
 - 查看归档会话
 - 查看最后一问一答预览
 - 归档会话恢复到侧边栏（取消归档）
-- 工作区目录（自动识别 DSH 已注册工作区）
-- 时间筛选（一天内 / 七天内 / 七天以外）
+- 工作区筛选（自动识别 DSH 已注册工作区）
+- 时间筛选（最近一天 / 最近七天 / 更早）
 - 下拉或按钮手动刷新，首次加载后不自动覆盖旧数据
 - 单个或批量移动到回收站
 - 恢复回收站会话

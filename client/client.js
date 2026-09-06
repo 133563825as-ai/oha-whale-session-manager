@@ -308,8 +308,13 @@ window.__ModuleLoader__.load({
         setError('')
         try {
           const d = await fetchJson(WORKSPACES_URL)
-          setWorkspaces(d.workspaces || [])
+          const next = d.workspaces || []
+          setWorkspaces(next)
           loadedRef.current.workspace = true
+          setWorkspaceFilter((prev) => {
+            if (prev === 'all' || prev === 'ungrouped') return prev
+            return next.some((ws) => ws.id === prev) ? prev : 'all'
+          })
         } catch (e) {
           setError(e.message || FALLBACK_ERROR)
         } finally {

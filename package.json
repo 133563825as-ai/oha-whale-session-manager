@@ -1,6 +1,7 @@
 {
   "name": "dsh-session-manager",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "type": "module",
   "main": "src/index.js",
   "exports": {
@@ -8,7 +9,7 @@
     "./client": "./client/client.js",
     "./package.json": "./package.json"
   },
-  "files": ["src", "client", "assets", "cordis.patch.yml", "README.md"],
+  "files": ["src", "client", "assets", "cordis.patch.yml", "README.md", "LICENSE"],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": {

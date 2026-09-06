@@ -12,6 +12,7 @@ const createdFiles = [
   'client/client.js',
   'assets/mascot.png',
   'README.md',
+  'LICENSE',
   'test/client-static.test.mjs'
 ]
 const emojiPattern = /[\u{1F000}-\u{1FAFF}]/u
@@ -24,7 +25,8 @@ test('package.json declares the complete bundle contract', async () => {
   const packageJson = JSON.parse(await read('package.json'))
 
   assert.equal(packageJson.name, 'dsh-session-manager')
-  assert.equal(packageJson.version, '0.1.0')
+  assert.equal(packageJson.version, '1.0.0')
+  assert.equal(packageJson.license, 'MIT')
   assert.equal(packageJson.type, 'module')
   assert.equal(packageJson.main, 'src/index.js')
   assert.deepEqual(packageJson.exports, {
@@ -32,7 +34,7 @@ test('package.json declares the complete bundle contract', async () => {
     './client': './client/client.js',
     './package.json': './package.json'
   })
-  assert.deepEqual(packageJson.files, ['src', 'client', 'assets', 'cordis.patch.yml', 'README.md'])
+  assert.deepEqual(packageJson.files, ['src', 'client', 'assets', 'cordis.patch.yml', 'README.md', 'LICENSE'])
   assert.equal(packageJson.dsh?.bundle?.patch, './cordis.patch.yml')
   assert.equal(packageJson.dsh?.client?.platform, 'web')
   assert.deepEqual(packageJson.dsh?.client?.inject, [
