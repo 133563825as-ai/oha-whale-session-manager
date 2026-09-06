@@ -136,9 +136,19 @@ window.__ModuleLoader__.load({
       react.createElement('path', { d: 'M3 3v5h5', fill: 'none', stroke: 'currentColor', strokeWidth: '1.8', strokeLinecap: 'round', strokeLinejoin: 'round' })
     )
 
+    /* --- i18n: DSH passes t() as a function, but this plugin also uses t.key --- */
+    function makeT (propsT) {
+      const tr = typeof propsT === 'function'
+        ? propsT
+        : (key, params) => (zh[key] ?? en[key] ?? key)
+      return new Proxy(tr, {
+        get: (target, key) => (typeof key === 'string' ? tr(key) : target[key])
+      })
+    }
+
     /* --- sidebar button --- */
     function SidebarAction (props) {
-      const t = props.t || {}
+      const t = makeT(props.t)
       const wide = props.wide !== false
       return react.createElement('div', { className: 'sm-action-wrap' },
         react.createElement('button', {
@@ -152,7 +162,7 @@ window.__ModuleLoader__.load({
 
     /* --- main overlay --- */
     function Overlay (props) {
-      const t = props.t || {}
+      const t = makeT(props.t)
       const useSessions = props.useSessions
       const current = useSessions ? useSessions((s) => s.current) : undefined
       const isOpen = react.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)

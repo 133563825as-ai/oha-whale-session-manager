@@ -101,6 +101,13 @@ test('client contains archive and trash actions', async () => {
   assert.match(source, /useSessions/)
 })
 
+test('client accepts DSH locale t as a translation function', async () => {
+  const source = await read('client/client.js')
+  assert.match(source, /function makeT/)
+  assert.match(source, /typeof propsT === 'function'/)
+  assert.match(source, /new Proxy\(tr/)
+})
+
 test('created Task 1 files contain no Unicode emoji', async () => {
   for (const relativePath of createdFiles) {
     assert.doesNotMatch(await read(relativePath), emojiPattern, relativePath)
