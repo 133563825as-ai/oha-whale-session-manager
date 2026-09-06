@@ -512,9 +512,9 @@ window.__ModuleLoader__.load({
       }
       bodyChildren.push(body)
 
-      return react.createElement('div', { className: 'sm-backdrop sm-panel-backdrop', onClick: closeModal },
+      return react.createElement('div', { className: 'sm-backdrop sm-sidebar-backdrop', onClick: closeModal },
         react.createElement('div', {
-          className: 'sm-dialog sm-panel', role: 'dialog', 'aria-modal': 'true', 'aria-label': t.dialogTitle,
+          className: 'sm-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': t.dialogTitle,
           onClick: (e) => e.stopPropagation(), onPointerDown: (e) => e.stopPropagation()
         },
           react.createElement('div', { className: 'sm-header' },
@@ -553,9 +553,9 @@ window.__ModuleLoader__.load({
 
 .sm-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(0,0,0,.35);animation:sm-fadein .15s ease-out;pointer-events:auto;touch-action:none}
 
-/* Sidebar panel form: sits over the sidebar column, not over the chat area. */
-.sm-panel-backdrop{inset:0 auto 0 0;width:min(88vw,280px);background:rgba(0,0,0,.12);display:flex;align-items:stretch;justify-content:flex-start}
-.sm-panel{width:100%;height:100%;max-height:none;border-radius:0 16px 16px 0;box-shadow:8px 0 24px rgba(0,0,0,.15);animation:sm-pop .18s ease-out}
+/* Centered modal, but anchored over the open sidebar column instead of the chat. */
+.sm-sidebar-backdrop{inset:0 auto 0 0;width:min(88vw,280px);background:rgba(0,0,0,.25);display:grid;place-items:center}
+.sm-sidebar-backdrop .sm-dialog{width:calc(100% - 16px);max-height:min(80vh,560px)}
 
 .sm-dialog{width:min(92vw,420px);max-height:min(80vh,560px);display:flex;flex-direction:column;background:var(--dsw-specific-panel-fill,#f5f6f8);color:var(--dsw-alias-label-primary,#17181c);border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;touch-action:auto;animation:sm-pop .2s cubic-bezier(.16,1,.3,1)}
 
