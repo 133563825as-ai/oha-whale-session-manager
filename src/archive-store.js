@@ -1,67 +1,97 @@
 import { access, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
-import { dirname, isAbsolute, join } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+class OutsideSessionsRootError extends Error {}
+
 function requireSessionId (id) {
-  if (typeof id !== 'string' || !SESSION_ID.test(id)) {
-    throw new Error(`invalid session id: ${id}`)
-  }
+  if (typeof id !== 'string' || !SESSION_ID.test(id)) throw new Error(`invalid session id: ${id}`)
 }
 
 async function exists (path) {
-  try {
-    await access(path)
-    return true
-  } catch {
-    return false
+  try { await access(path); return true } catch { return false }
+}
+
+function headerId (header) { return header.id ?? header.sessionId }
+
+function comparableTime (value) {
+  if (typeof value === 'number') return value
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'string') {
+    const numeric = Number(value)
+    if (Number.isFinite(numeric)) return numeric
+    const parsed = Date.parse(value)
+    if (Number.isFinite(parsed)) return parsed
   }
+  return Number.NEGATIVE_INFINITY
 }
 
-function headerId (header) {
-  return header.id ?? header.sessionId
+function textOf (value) {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.map(textOf).join('')
+  if (!value || typeof value !== 'object') return ''
+  return textOf(value.text ?? value.content ?? value.parts ?? value.data)
 }
 
-function contentOf (event) {
-  return event?.content ?? event?.message?.content ?? event?.data?.content
+function eventRole (event) {
+  if (event?.type === 'user/message') return 'user'
+  if (event?.type === 'assistant/message') return 'assistant'
+  return event?.role ?? event?.data?.role ?? event?.message?.role ?? event?.data?.message?.role ?? (event?.type === 'user' || event?.type === 'assistant' ? event.type : undefined)
 }
 
-function isMessage (event, role) {
-  return (event?.role === role || event?.type === role) &&
-    (event?.type === 'message' || event?.subtype === 'message' || event?.kind === 'message' || event?.message?.type === 'message')
+function isMessage (event) {
+  return event?.type === 'user/message' || event?.type === 'assistant/message' ||
+    event?.type === 'message' || event?.subtype === 'message' || event?.kind === 'message' ||
+    event?.message?.type === 'message' || event?.data?.type === 'message'
 }
 
-function isManifest (manifest, id) {
-  return manifest?.version === 1 &&
-    manifest.sessionId === id &&
-    SESSION_ID.test(manifest.sessionId) &&
-    typeof manifest.originalDir === 'string' && isAbsolute(manifest.originalDir) &&
-    typeof manifest.title === 'string' &&
-    typeof manifest.cwd === 'string' &&
-    typeof manifest.updatedAt === 'string' &&
-    typeof manifest.deletedAt === 'string'
+function eventText (event) {
+  return textOf(event?.content ?? event?.data?.content ?? event?.message?.content ?? event?.data?.message?.content)
 }
 
-export function createArchiveStore ({ sessionPersistence, workspaceRegistry, sessions, sessionsRoot: _sessionsRoot, trashRoot, now = () => new Date().toISOString() }) {
+function isInside (root, target) {
+  const relativePath = relative(resolve(root), resolve(target))
+  return relativePath !== '' && !relativePath.startsWith('..') && !isAbsolute(relativePath)
+}
+
+export function createArchiveStore ({ sessionPersistence, workspaceRegistry, sessions, sessionsRoot, trashRoot, now = () => new Date().toISOString(), writeManifest = writeFile }) {
   const getHeaders = () => sessionPersistence.list()
   const archiveIds = () => new Set(workspaceRegistry.archivedSessionIds ?? [])
 
   async function headerFor (id, headers) {
-    const availableHeaders = headers ?? await getHeaders()
-    return availableHeaders.find((header) => headerId(header) === id)
+    const available = headers ?? await getHeaders()
+    return available.find((header) => headerId(header) === id)
   }
 
-  function sourceDirFor (header) {
-    return dirname(sessionPersistence.locate(header).path)
+  function sourceDirFor (header) { return dirname(sessionPersistence.locate(header).path) }
+
+  function validateSourceDir (sourceDir) {
+    if (!isAbsolute(sourceDir) || !isInside(sessionsRoot, sourceDir)) throw new Error('source outside sessions root')
   }
 
-  async function readManifest (id) {
+  function validateOriginalDir (manifest) {
+    if (!isAbsolute(manifest.originalDir) || !isInside(sessionsRoot, manifest.originalDir)) throw new OutsideSessionsRootError('outside sessions root')
+  }
+
+  function validManifest (manifest, id) {
+    return manifest?.version === 1 && manifest.sessionId === id && SESSION_ID.test(manifest.sessionId) &&
+      typeof manifest.originalDir === 'string' && isAbsolute(manifest.originalDir) &&
+      typeof manifest.title === 'string' && typeof manifest.cwd === 'string' &&
+      (typeof manifest.updatedAt === 'number' || typeof manifest.updatedAt === 'string') &&
+      (typeof manifest.deletedAt === 'number' || typeof manifest.deletedAt === 'string')
+  }
+
+  async function readManifest (id, { strict = false } = {}) {
     requireSessionId(id)
     const dir = join(trashRoot, id)
     try {
       const manifest = JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8'))
-      return isManifest(manifest, id) ? { dir, manifest } : null
-    } catch {
+      if (!validManifest(manifest, id)) return null
+      validateOriginalDir(manifest)
+      return { dir, manifest }
+    } catch (error) {
+      if (strict && error instanceof OutsideSessionsRootError) throw error
       return null
     }
   }
@@ -70,17 +100,18 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
     requireSessionId(id)
     const header = await headerFor(id)
     if (!header) return { missing: true }
-
-    const events = await sessionPersistence.inspect(id)
+    const inspection = await sessionPersistence.inspect(id)
+    const events = Array.isArray(inspection) ? inspection : (inspection?.events ?? [])
     let lastUser
     let lastAssistant
     for (let index = events.length - 1; index >= 0; index -= 1) {
       const event = events[index]
-      if (lastUser === undefined && isMessage(event, 'user')) lastUser = String(contentOf(event) ?? '').slice(0, 280)
-      if (lastAssistant === undefined && isMessage(event, 'assistant')) lastAssistant = String(contentOf(event) ?? '').slice(0, 280)
+      const role = eventRole(event)
+      if (!isMessage(event)) continue
+      if (role === 'user' && lastUser === undefined) lastUser = eventText(event).slice(0, 280)
+      if (role === 'assistant' && lastAssistant === undefined) lastAssistant = eventText(event).slice(0, 280)
       if (lastUser !== undefined && lastAssistant !== undefined) break
     }
-
     return { id, title: header.title, updatedAt: header.updatedAt, cwd: header.cwd, lastUser, lastAssistant }
   }
 
@@ -90,38 +121,32 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
     for (const id of archiveIds()) {
       const header = await headerFor(id, headers)
       if (!header) continue
-      if (!(await exists(sessionPersistence.locate(header).path))) {
+      try {
+        const artifactPath = sessionPersistence.locate(header).path
+        if (!(await exists(artifactPath))) {
+          entries.push({ id, title: header.title, updatedAt: header.updatedAt, cwd: header.cwd, missing: true })
+          continue
+        }
+        entries.push(await previewSession(id))
+      } catch {
         entries.push({ id, title: header.title, updatedAt: header.updatedAt, cwd: header.cwd, missing: true })
-        continue
       }
-      entries.push(await previewSession(id))
     }
-    return entries.sort((left, right) => String(right.updatedAt ?? '').localeCompare(String(left.updatedAt ?? '')))
+    return entries.sort((left, right) => comparableTime(right.updatedAt) - comparableTime(left.updatedAt))
   }
 
   async function listTrash () {
     let entries
-    try {
-      entries = await readdir(trashRoot, { withFileTypes: true })
-    } catch {
-      return []
-    }
-
+    try { entries = await readdir(trashRoot, { withFileTypes: true }) } catch { return [] }
     const trash = []
     for (const entry of entries) {
       if (!entry.isDirectory() || !SESSION_ID.test(entry.name)) continue
       const item = await readManifest(entry.name)
       if (!item) continue
       const { manifest } = item
-      trash.push({
-        id: manifest.sessionId,
-        title: manifest.title,
-        cwd: manifest.cwd,
-        updatedAt: manifest.updatedAt,
-        deletedAt: manifest.deletedAt,
-      })
+      trash.push({ id: manifest.sessionId, title: manifest.title, cwd: manifest.cwd, updatedAt: manifest.updatedAt, deletedAt: manifest.deletedAt })
     }
-    return trash.sort((left, right) => String(right.deletedAt).localeCompare(String(left.deletedAt)))
+    return trash.sort((left, right) => comparableTime(right.deletedAt) - comparableTime(left.deletedAt))
   }
 
   async function trash (ids) {
@@ -129,37 +154,35 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
     const headers = await getHeaders()
     const archived = archiveIds()
     const moved = []
-
     for (const id of ids) {
       requireSessionId(id)
       if (liveIds.has(id)) throw new Error(`live session cannot be trashed: ${id}`)
       if (!archived.has(id)) throw new Error(`archived session not found: ${id}`)
       const header = await headerFor(id, headers)
       if (!header) throw new Error(`archived session not found: ${id}`)
-
       const sourceDir = sourceDirFor(header)
+      validateSourceDir(sourceDir)
       const artifactPath = sessionPersistence.locate(header).path
       const destination = join(trashRoot, id)
       if (!(await exists(artifactPath))) throw new Error(`archived session not materialized: ${id}`)
       if (await exists(destination)) throw new Error(`destination collision: ${id}`)
-
+      const manifest = { version: 1, sessionId: id, originalDir: sourceDir, title: header.title, cwd: header.cwd, updatedAt: header.updatedAt, deletedAt: now() }
       await mkdir(trashRoot, { recursive: true })
-      await rename(sourceDir, destination)
-      const manifest = {
-        version: 1,
-        sessionId: id,
-        originalDir: sourceDir,
-        title: header.title,
-        cwd: header.cwd,
-        updatedAt: header.updatedAt,
-        deletedAt: now(),
+      const pending = join(trashRoot, `.pending-${id}-${process.pid}-${Date.now()}.json`)
+      try {
+        await writeManifest(pending, JSON.stringify(manifest), 'utf8')
+        await rename(sourceDir, destination)
+        try {
+          await rename(pending, join(destination, 'manifest.json'))
+        } catch (error) {
+          await rename(destination, sourceDir).catch(() => {})
+          throw error
+        }
+      } finally {
+        await rm(pending, { force: true }).catch(() => {})
       }
-      const temporaryPath = join(destination, `.manifest-${process.pid}-${Date.now()}.tmp`)
-      await writeFile(temporaryPath, JSON.stringify(manifest), 'utf8')
-      await rename(temporaryPath, join(destination, 'manifest.json'))
       moved.push(id)
     }
-
     return { moved }
   }
 
@@ -167,7 +190,7 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
     const restored = []
     for (const id of ids) {
       requireSessionId(id)
-      const item = await readManifest(id)
+      const item = await readManifest(id, { strict: true })
       if (!item) throw new Error(`invalid trash entry: ${id}`)
       if (await exists(item.manifest.originalDir)) throw new Error(`destination collision: ${id}`)
       await mkdir(dirname(item.manifest.originalDir), { recursive: true })
@@ -180,15 +203,8 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
   async function purge (ids) {
     let candidates = ids
     if (candidates === undefined) {
-      try {
-        candidates = (await readdir(trashRoot, { withFileTypes: true }))
-          .filter((entry) => entry.isDirectory() && SESSION_ID.test(entry.name))
-          .map((entry) => entry.name)
-      } catch {
-        candidates = []
-      }
+      try { candidates = (await readdir(trashRoot, { withFileTypes: true })).filter((entry) => entry.isDirectory() && SESSION_ID.test(entry.name)).map((entry) => entry.name) } catch { candidates = [] }
     }
-
     const purged = []
     for (const id of candidates) {
       requireSessionId(id)
