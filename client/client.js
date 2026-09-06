@@ -369,7 +369,7 @@ window.__ModuleLoader__.load({
 .sm-tab:active{transform:scale(.96)}
 .sm-tab-on{background:#4f7cff;color:#fff}
 
-.sm-body{flex:1;1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 14px 16px}
+.sm-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 14px 16px}
 
 .sm-toolbar{display:flex;gap:6px;padding:2px 0 10px;flex-wrap:wrap}
 .sm-tool-btn{border:1px solid #e7e8ec;background:#fff;color:#17181c;font:inherit;font-size:11px;font-weight:600;padding:6px 12px;border-radius:10px;cursor:pointer;transition:all .12s ease}
@@ -434,10 +434,11 @@ window.__ModuleLoader__.load({
 
     function injectStyle () {
       if (typeof document === 'undefined') return () => {}
-      if (document.querySelector('style[data-dsh-session-manager]')) return () => {}
+      const ATTR = 'data-dsh-session-manager'
+      const existing = document.querySelector('style[' + ATTR + ']')
+      if (existing) { existing.textContent = CSS; return () => existing.remove() }
       const tag = document.createElement('style')
-      tag.dataset.plugin = 'dsh-session-manager'
-      tag.dataset.pluginCss = 'dsh-session-manager/styles.css'
+      tag.setAttribute(ATTR, '')
       tag.textContent = CSS
       document.head.appendChild(tag)
       return () => tag.remove()
