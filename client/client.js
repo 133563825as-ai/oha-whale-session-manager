@@ -94,6 +94,8 @@ window.__ModuleLoader__.load({
       setOpen(false)
     }
 
+    const FALLBACK_ERROR = 'Operation failed'
+
     async function fetchJson (path, init = {}) {
       const res = await fetch(path, { ...init, headers: { ...(init.headers || {}), 'Content-Type': 'application/json; charset=utf-8' } })
       let data
@@ -170,22 +172,22 @@ window.__ModuleLoader__.load({
       const loadArchives = react.useCallback(async () => {
         setLoading(true); setError('')
         try { const d = await fetchJson(ARCHIVES_URL); setArchives(d.archives || []) }
-        catch (e) { setError(e.message || t.errorPrefix) } finally { setLoading(false) }
-      }, [t.errorPrefix])
+        catch (e) { setError(e.message || FALLBACK_ERROR) } finally { setLoading(false) }
+      }, [])
 
       const loadTrash = react.useCallback(async () => {
         setLoading(true); setError('')
         try { const d = await fetchJson(TRASH_URL); setTrash(d.trash || []) }
-        catch (e) { setError(e.message || t.errorPrefix) } finally { setLoading(false) }
-      }, [t.errorPrefix])
+        catch (e) { setError(e.message || FALLBACK_ERROR) } finally { setLoading(false) }
+      }, [])
 
       const refreshAll = react.useCallback(async () => {
         setLoading(true); setError('')
         try {
           const [a, b] = await Promise.all([fetchJson(ARCHIVES_URL), fetchJson(TRASH_URL)])
           setArchives(a.archives || []); setTrash(b.trash || [])
-        } catch (e) { setError(e.message || t.errorPrefix) } finally { setLoading(false) }
-      }, [t.errorPrefix])
+        } catch (e) { setError(e.message || FALLBACK_ERROR) } finally { setLoading(false) }
+      }, [])
 
       react.useEffect(() => {
         if (!isOpen) { setTab('archive'); setSelectedIds(new Set()); setSelectionMode(false); setError(''); return }
@@ -231,7 +233,7 @@ window.__ModuleLoader__.load({
         if (isCurrent) cls.push('sm-card-current')
         if (isSelected) cls.push('sm-card-selected')
 
-        const title = row.title || row.id.slice(0, 8)
+        const title = row.title || (row.id ? row.id.slice(0, 8) : '?')
         const workspace = row.cwdBase || row.cwd || ''
         const firstMsg = row.firstUser || ''
         const lastMsg = row.lastAssistant || row.lastUser || ''
@@ -247,7 +249,7 @@ window.__ModuleLoader__.load({
         const iconBg = isCurrent ? '#4f7cff' : (row.missing ? '#9ca0aa' : '#eef2ff')
         const iconColor = isCurrent ? '#fff' : (row.missing ? '#fff' : '#4f7cff')
         children.push(react.createElement('div', { key: 'icon', className: 'sm-card-icon', style: { background: iconBg, color: iconColor } },
-          row.missing ? '!' : title[0].toUpperCase()
+          row.missing ? '!' : (title[0] ? title[0].toUpperCase() : '?')
         ))
 
         /* center: info */
