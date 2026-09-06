@@ -665,10 +665,10 @@ window.__ModuleLoader__.load({
 .sm-list{display:flex;flex-direction:column;gap:8px}
 .sm-archive-groups{display:flex;flex-direction:column;gap:14px}
 .sm-ws-group{display:flex;flex-direction:column;gap:8px}
-.sm-ws-header{display:flex;align-items:center;gap:10px;padding:2px 2px 0}
-.sm-ws-icon{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none;font-size:12px;font-weight:800;line-height:1;background:#eef2ff;color:#4f7cff}
-.sm-ws-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.sm-ws-title{font-size:12px;font-weight:700;color:var(--dsw-alias-label-primary,#17181c);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sm-ws-header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border:1px solid #e7e8ec;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,.03)}
+.sm-ws-icon{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none;font-size:12px;font-weight:800;line-height:1;background:#eef2ff;color:#4f7cff;overflow:hidden}
+.sm-ws-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.sm-ws-title{font-size:13px;font-weight:700;color:var(--dsw-alias-label-primary,#17181c);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sm-ws-meta{font-size:10px;color:#777b84;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .sm-card{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:16px;background:#fff;border:1px solid #e7e8ec;box-shadow:0 2px 8px rgba(0,0,0,.03);cursor:pointer;position:relative;transition:transform .12s ease,box-shadow .2s ease,border-color .2s ease;-webkit-tap-highlight-color:transparent;animation:sm-fadein .2s ease-out}
@@ -722,6 +722,7 @@ window.__ModuleLoader__.load({
 .sm-category-select:focus{border-color:#4f7cff}
 .sm-pull{color:#6b7080}
 .sm-ws-icon{background:rgba(79,124,255,.18);color:#8ba4ff}
+.sm-ws-header{background:#262a33;border-color:#363c48}
 .sm-ws-title{color:#f2f4f8}
 .sm-ws-meta{color:#8b91a0}
 .sm-card{background:#262a33;border-color:#363c48}
