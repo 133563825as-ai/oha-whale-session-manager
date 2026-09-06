@@ -50,9 +50,10 @@ window.__ModuleLoader__.load({
       trashSuccess: '已移入回收站',
       purgeSuccess: '回收站已清空',
       filterAll: '全部',
-      filterDay: '一天内',
-      filterWeek: '七天内',
-      filterOlder: '七天以外',
+      filterDay: '最近一天',
+      filterWeek: '最近七天',
+      filterOlder: '更早',
+      ungrouped: '未分组',
       sessionCount: '{count} 个会话',
       archivedCount: '归档 {count}',
       timeJustNow: '刚刚',
@@ -102,6 +103,7 @@ window.__ModuleLoader__.load({
       filterDay: 'Last day',
       filterWeek: 'Last 7 days',
       filterOlder: 'Older',
+      ungrouped: 'Ungrouped',
       sessionCount: '{count} sessions',
       archivedCount: '{count} archived',
       timeJustNow: 'Just now',
@@ -221,7 +223,6 @@ window.__ModuleLoader__.load({
       const [loading, setLoading] = react.useState(false)
       const [refreshing, setRefreshing] = react.useState(false)
       const [filter, setFilter] = react.useState('all')
-      const [expandedWorkspace, setExpandedWorkspace] = react.useState(null)
       const [pullY, setPullY] = react.useState(0)
       const [busyIds, setBusyIds] = react.useState(new Set())
       const [error, setError] = react.useState('')
@@ -292,8 +293,7 @@ window.__ModuleLoader__.load({
       }, [loadArchives, loadWorkspaces, loadTrash])
 
       const manualRefresh = react.useCallback(() => {
-        if (tab === 'archive') return loadArchives(true)
-        if (tab === 'workspace') return loadWorkspaces(true)
+        if (tab === 'archive') return Promise.all([loadArchives(true), loadWorkspaces(true)])
         if (tab === 'trash') return loadTrash(true)
       }, [tab, loadArchives, loadWorkspaces, loadTrash])
 
@@ -305,9 +305,10 @@ window.__ModuleLoader__.load({
           setError('')
           return
         }
-        if (tab === 'archive' && !loadedRef.current.archive) loadArchives()
-        else if (tab === 'workspace' && !loadedRef.current.workspace) loadWorkspaces()
-        else if (tab === 'trash' && !loadedRef.current.trash) loadTrash()
+        if (tab === 'archive' && !loadedRef.current.archive) {
+          loadArchives()
+          if (!loadedRef.current.workspace) loadWorkspaces()
+        } else if (tab === 'trash' && !loadedRef.current.trash) loadTrash()
       }, [isOpen, tab, loadArchives, loadWorkspaces, loadTrash])
 
       react.useEffect(() => {
@@ -432,25 +433,48 @@ window.__ModuleLoader__.load({
         return react.createElement('div', { key: row.id, className: cls.join(' '), onClick: selectionMode && kind === 'archive' ? () => toggleSelect(row.id) : undefined }, children)
       }
 
-      function renderWorkspaceCard (ws) {
-        const expanded = expandedWorkspace === ws.id
+      function renderWorkspaceGroup (ws, rows) {
         const children = []
-        children.push(react.createElement('div', { key: 'icon', className: 'sm-card-icon', style: { background: '#eef2ff', color: '#4f7cff' } },
+        children.push(react.createElement('div', { key: 'icon', className: 'sm-ws-icon' },
           (ws.title || '?')[0] ? (ws.title || '?')[0].toUpperCase() : '?'
         ))
         const info = []
-        info.push(react.createElement('div', { key: 'title', className: 'sm-card-title' }, ws.title))
-        info.push(react.createElement('div', { key: 'path', className: 'sm-card-meta' }, ws.path))
-        info.push(react.createElement('div', { key: 'count', className: 'sm-card-meta' }, t.sessionCount.replace('{count}', String(ws.sessionCount)) + ' · ' + t.archivedCount.replace('{count}', String(ws.archivedCount))))
-        children.push(react.createElement('div', { key: 'info', className: 'sm-card-info' }, info))
-        children.push(react.createElement('div', { key: 'right', className: 'sm-card-right' }, react.createElement('span', { className: 'sm-card-hint' }, expanded ? '−' : '+')))
-        if (expanded) {
+        info.push(react.createElement('div', { key: 'title', className: 'sm-ws-title' }, ws.title))
+        info.push(react.createElement('div', { key: 'path', className: 'sm-ws-meta' }, ws.path))
+        info.push(react.createElement('div', { key: 'count', className: 'sm-ws-meta' }, t.sessionCount.replace('{count}', String(ws.sessionCount)) + ' · ' + t.archivedCount.replace('{count}', String(ws.archivedCount))))
+        children.push(react.createElement('div', { key: 'info', className: 'sm-ws-info' }, info))
+        return react.createElement('div', { key: 'ws-' + ws.id, className: 'sm-ws-group' },
+          react.createElement('div', { className: 'sm-ws-header' }, children),
+          react.createElement('div', { className: 'sm-list' }, rows.map((r) => renderCard(r, 'archive')))
+        )
+      }
+
+      function renderUngroupedGroup (rows) {
+        const children = [
+          react.createElement('div', { key: 'icon', className: 'sm-ws-icon' }, '?'),
+          react.createElement('div', { key: 'info', className: 'sm-ws-info' },
+            react.createElement('div', { key: 'title', className: 'sm-ws-title' }, t.ungrouped),
+            react.createElement('div', { key: 'count', className: 'sm-ws-meta' }, t.archivedCount.replace('{count}', String(rows.length)))
+          )
+        ]
+        return react.createElement('div', { key: 'ungrouped', className: 'sm-ws-group' },
+          react.createElement('div', { className: 'sm-ws-header' }, children),
+          react.createElement('div', { className: 'sm-list' }, rows.map((r) => renderCard(r, 'archive')))
+        )
+      }
+
+      function renderArchiveGroups () {
+        const byPath = new Map(workspaces.map((ws) => [ws.path, ws]))
+        const groups = []
+        for (const ws of workspaces) {
           const rows = filteredArchives.filter((row) => row.cwd === ws.path)
-          children.push(react.createElement('div', { key: 'ws-rows', className: 'sm-ws-rows' },
-            rows.length === 0 ? react.createElement('div', { className: 'sm-empty' }, t.emptyArchives) : rows.map((r) => renderCard(r, 'archive'))
-          ))
+          if (rows.length > 0) groups.push({ ws, rows })
         }
-        return react.createElement('div', { key: ws.id, className: 'sm-card' + (expanded ? ' sm-card-expanded' : ''), onClick: () => setExpandedWorkspace(expanded ? null : ws.id) }, children)
+        const assigned = new Set(workspaces.map((ws) => ws.path))
+        const ungroupedRows = filteredArchives.filter((row) => !assigned.has(row.cwd))
+        const out = groups.map(({ ws, rows }) => renderWorkspaceGroup(ws, rows))
+        if (ungroupedRows.length > 0) out.push(renderUngroupedGroup(ungroupedRows))
+        return out
       }
 
       /* --- toolbar --- */
@@ -463,8 +487,6 @@ window.__ModuleLoader__.load({
             btns.push(react.createElement('button', { key: 'up', className: 'sm-tool-btn', disabled: selectedIds.size === 0, onClick: () => { if (!window.confirm(t.confirmUnarchiveSelected.replace('{count}', String(selectedIds.size)))) return; doUnarchive(Array.from(selectedIds)); setSelectionMode(false) } }, t.unarchiveSelected + ' (' + selectedIds.size + ')'))
             btns.push(react.createElement('button', { key: 'del', className: 'sm-tool-btn sm-tool-danger', disabled: selectedIds.size === 0, onClick: () => { if (!window.confirm(t.confirmDeleteSelected.replace('{count}', String(selectedIds.size)))) return; doTrash(Array.from(selectedIds)); setSelectionMode(false) } }, t.deleteSelected + ' (' + selectedIds.size + ')'))
           }
-          btns.push(react.createElement('button', { key: 'refresh', className: 'sm-tool-btn', disabled: refreshing, onClick: () => manualRefresh() }, refreshing ? t.refreshing : t.pullHint))
-        } else if (tab === 'workspace') {
           btns.push(react.createElement('button', { key: 'refresh', className: 'sm-tool-btn', disabled: refreshing, onClick: () => manualRefresh() }, refreshing ? t.refreshing : t.pullHint))
         } else {
           btns.push(react.createElement('button', { key: 'refresh', className: 'sm-tool-btn', disabled: refreshing, onClick: () => manualRefresh() }, refreshing ? t.refreshing : t.pullHint))
@@ -493,18 +515,14 @@ window.__ModuleLoader__.load({
       if (pullY > 0 || refreshing) bodyChildren.push(react.createElement('div', { className: 'sm-pull' }, refreshing ? t.refreshing : t.pullHint))
 
       let body
-      if (loading && (tab === 'archive' ? archives.length === 0 : tab === 'workspace' ? workspaces.length === 0 : trash.length === 0)) {
+      if (loading && (tab === 'archive' ? archives.length === 0 : trash.length === 0)) {
         body = react.createElement('div', { className: 'sm-loading' }, t.loading)
-      } else if (error && (tab === 'archive' ? archives.length === 0 : tab === 'workspace' ? workspaces.length === 0 : trash.length === 0)) {
+      } else if (error && (tab === 'archive' ? archives.length === 0 : trash.length === 0)) {
         body = react.createElement('div', { className: 'sm-error' }, error)
       } else if (tab === 'archive') {
         body = filteredArchives.length === 0
           ? react.createElement('div', { className: 'sm-empty' }, archives.length === 0 ? t.emptyArchives : t.emptyArchives)
-          : react.createElement('div', { className: 'sm-list' }, filteredArchives.map((r) => renderCard(r, 'archive')))
-      } else if (tab === 'workspace') {
-        body = workspaces.length === 0
-          ? react.createElement('div', { className: 'sm-empty' }, t.emptyWorkspaces)
-          : react.createElement('div', { className: 'sm-list' }, workspaces.map((ws) => renderWorkspaceCard(ws)))
+          : react.createElement('div', { className: 'sm-archive-groups' }, renderArchiveGroups())
       } else {
         body = trash.length === 0
           ? react.createElement('div', { className: 'sm-empty' }, t.emptyTrash)
@@ -523,7 +541,6 @@ window.__ModuleLoader__.load({
           ),
           react.createElement('div', { className: 'sm-tabs' },
             react.createElement('button', { className: tab === 'archive' ? 'sm-tab sm-tab-on' : 'sm-tab', onClick: () => setTab('archive') }, t.archiveTab),
-            react.createElement('button', { className: tab === 'workspace' ? 'sm-tab sm-tab-on' : 'sm-tab', onClick: () => setTab('workspace') }, t.workspaceTab),
             react.createElement('button', { className: tab === 'trash' ? 'sm-tab sm-tab-on' : 'sm-tab', onClick: () => setTab('trash') }, t.trashTab)
           ),
           react.createElement('div', {
@@ -586,6 +603,13 @@ window.__ModuleLoader__.load({
 .sm-pulling{transition:transform .1s ease}
 
 .sm-list{display:flex;flex-direction:column;gap:8px}
+.sm-archive-groups{display:flex;flex-direction:column;gap:14px}
+.sm-ws-group{display:flex;flex-direction:column;gap:8px}
+.sm-ws-header{display:flex;align-items:center;gap:10px;padding:2px 2px 0}
+.sm-ws-icon{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none;font-size:12px;font-weight:800;line-height:1;background:#eef2ff;color:#4f7cff}
+.sm-ws-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.sm-ws-title{font-size:12px;font-weight:700;color:var(--dsw-alias-label-primary,#17181c);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sm-ws-meta{font-size:10px;color:#777b84;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .sm-card{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:16px;background:#fff;border:1px solid #e7e8ec;box-shadow:0 2px 8px rgba(0,0,0,.03);cursor:pointer;position:relative;transition:transform .12s ease,box-shadow .2s ease,border-color .2s ease;-webkit-tap-highlight-color:transparent;animation:sm-fadein .2s ease-out}
 .sm-card-expanded{flex-wrap:wrap;align-items:stretch}
@@ -631,7 +655,9 @@ window.__ModuleLoader__.load({
 .sm-filter-btn{background:#262a33;border-color:#363c48;color:#8b91a0}
 .sm-filter-on{background:#4f7cff;border-color:#4f7cff;color:#fff}
 .sm-pull{color:#6b7080}
-.sm-ws-rows{border-top-color:#363c48}
+.sm-ws-icon{background:rgba(79,124,255,.18);color:#8ba4ff}
+.sm-ws-title{color:#f2f4f8}
+.sm-ws-meta{color:#8b91a0}
 .sm-card{background:#262a33;border-color:#363c48}
 .sm-card:active{box-shadow:0 2px 12px rgba(0,0,0,.2)}
 .sm-card-selected{background:rgba(79,124,255,.12);border-color:rgba(79,124,255,.3)}
