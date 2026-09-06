@@ -181,7 +181,11 @@ window.__ModuleLoader__.load({
     function makeT (propsT) {
       const tr = typeof propsT === 'function'
         ? propsT
-        : (key, params) => (zh[key] ?? en[key] ?? key)
+        : (key, params) => {
+            const value = zh[key] ?? en[key] ?? key
+            if (!params) return value
+            return String(value).replace(/\{(\w+)\}/g, (_, name) => params[name] ?? '')
+          }
       return new Proxy(tr, {
         get: (target, key) => (typeof key === 'string' ? tr(key) : target[key])
       })
@@ -550,7 +554,7 @@ window.__ModuleLoader__.load({
 .sm-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(0,0,0,.35);animation:sm-fadein .15s ease-out;pointer-events:auto;touch-action:none}
 
 /* Sidebar panel form: sits over the sidebar column, not over the chat area. */
-.sm-panel-backdrop{inset:0 auto 0 0;width:min(88vw,340px);background:rgba(0,0,0,.12);display:flex;align-items:stretch;justify-content:flex-start}
+.sm-panel-backdrop{inset:0 auto 0 0;width:min(88vw,280px);background:rgba(0,0,0,.12);display:flex;align-items:stretch;justify-content:flex-start}
 .sm-panel{width:100%;height:100%;max-height:none;border-radius:0 16px 16px 0;box-shadow:8px 0 24px rgba(0,0,0,.15);animation:sm-pop .18s ease-out}
 
 .sm-dialog{width:min(92vw,420px);max-height:min(80vh,560px);display:flex;flex-direction:column;background:var(--dsw-specific-panel-fill,#f5f6f8);color:var(--dsw-alias-label-primary,#17181c);border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;touch-action:auto;animation:sm-pop .2s cubic-bezier(.16,1,.3,1)}
