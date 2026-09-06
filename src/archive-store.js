@@ -15,6 +15,26 @@ async function exists (path) {
 
 function headerId (header) { return header.id ?? header.sessionId }
 
+function deriveTitle (header) {
+  if (header.title) return header.title
+  if (header.cwd) {
+    const parts = header.cwd.replace(/\/+$/, '').split('/')
+    const last = parts[parts.length - 1]
+    if (last && last !== '' && last !== '.') return last
+  }
+  return headerId(header).slice(0, 8)
+}
+
+function deriveUpdatedAt (header, events) {
+  if (header.updatedAt) return header.updatedAt
+  if (events && events.length > 0) {
+    const last = events[events.length - 1]
+    if (last?.time) return last.time
+  }
+  if (header.createdAt) return header.createdAt
+  return 0
+}
+
 function comparableTime (value) {
   if (typeof value === 'number') return value
   if (value instanceof Date) return value.getTime()
@@ -112,7 +132,7 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
       if (role === 'assistant' && lastAssistant === undefined) lastAssistant = eventText(event).slice(0, 280)
       if (lastUser !== undefined && lastAssistant !== undefined) break
     }
-    return { id, title: header.title, updatedAt: header.updatedAt, cwd: header.cwd, lastUser, lastAssistant }
+    return { id, title: deriveTitle(header), updatedAt: deriveUpdatedAt(header, events), cwd: header.cwd, lastUser, lastAssistant }
   }
 
   async function listArchived () {
@@ -124,12 +144,12 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
       try {
         const artifactPath = sessionPersistence.locate(header).path
         if (!(await exists(artifactPath))) {
-          entries.push({ id, title: header.title, updatedAt: header.updatedAt, cwd: header.cwd, missing: true })
+          entries.push({ id, title: deriveTitle(header), updatedAt: deriveUpdatedAt(header), cwd: header.cwd, missing: true })
           continue
         }
         entries.push(await previewSession(id))
       } catch {
-        entries.push({ id, title: header.title, updatedAt: header.updatedAt, cwd: header.cwd, missing: true })
+        entries.push({ id, title: deriveTitle(header), updatedAt: deriveUpdatedAt(header), cwd: header.cwd, missing: true })
       }
     }
     return entries.sort((left, right) => comparableTime(right.updatedAt) - comparableTime(left.updatedAt))
@@ -166,7 +186,7 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
       const destination = join(trashRoot, id)
       if (!(await exists(artifactPath))) throw new Error(`archived session not materialized: ${id}`)
       if (await exists(destination)) throw new Error(`destination collision: ${id}`)
-      const manifest = { version: 1, sessionId: id, originalDir: sourceDir, title: header.title, cwd: header.cwd, updatedAt: header.updatedAt, deletedAt: now() }
+      const manifest = { version: 1, sessionId: id, originalDir: sourceDir, title: deriveTitle(header), cwd: header.cwd, updatedAt: deriveUpdatedAt(header), deletedAt: now() }
       await mkdir(trashRoot, { recursive: true })
       const pending = join(trashRoot, `.pending-${id}-${process.pid}-${Date.now()}.json`)
       try {

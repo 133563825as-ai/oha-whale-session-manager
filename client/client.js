@@ -158,12 +158,14 @@ window.__ModuleLoader__.load({
     function SidebarAction (props) {
       const t = props.t || {}
       const wide = props.wide !== false
-      return react.createElement('button', {
+      return react.createElement('div', {
+        className: 'session-manager-action-wrap'
+      }, react.createElement('button', {
         className: 'session-manager-action',
         'aria-label': t.sessionManagerAria || '打开会话管理',
         title: t.sessionManager || '会话管理',
         onClick: openModal
-      }, wide ? (t.sessionManager || '会话管理') : icon)
+      }, wide ? (t.sessionManager || '会话管理') : icon))
     }
 
     function Overlay (props) {
@@ -530,39 +532,48 @@ window.__ModuleLoader__.load({
     }
 
     const styleText = [
-      '.session-manager-action { display:inline-flex; align-items:center; gap:.5rem; padding:.375rem .65rem; border:0; background:transparent; color:inherit; border-radius:.5rem; cursor:pointer; font:inherit; width:100%; min-width:0; }',
-      '.session-manager-action:hover { background:rgba(128,128,128,.12); }',
-      '.session-manager-icon { flex:0 0 1em; font-size:1rem; }',
-      '.session-manager-backdrop { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; background:rgba(0,0,0,.48); pointer-events:auto; touch-action:none; }',
-      '.session-manager-dialog { width:min(92vw,400px); height:min(58vh,480px); max-height:min(58vh,480px); display:flex; flex-direction:column; background:var(--dsh-panel-bg,#fff); color:var(--dsh-panel-fg,#111); border-radius:12px; box-shadow:0 .5rem 2rem rgba(0,0,0,.2); overflow:hidden; touch-action:auto; }',
-      '.session-manager-header { display:flex; align-items:center; gap:.5rem; padding:.75rem 1rem; border-bottom:1px solid rgba(128,128,128,.2); }',
-      '.session-manager-title { font-size:1rem; font-weight:600; margin:0; min-width:0; }',
-      '.session-manager-tabs { display:flex; gap:.25rem; margin-left:auto; }',
-      '.session-manager-tab { border:0; background:transparent; color:inherit; font:inherit; padding:.25rem .5rem; border-radius:.375rem; cursor:pointer; }',
+      '.session-manager-action-wrap { padding:2px; }',
+      '.session-manager-action { display:inline-flex; align-items:center; gap:.5rem; padding:.375rem .65rem; border:1px solid rgba(128,128,128,.2); background:rgba(128,128,128,.05); color:inherit; border-radius:.5rem; cursor:pointer; font:inherit; width:100%; min-width:0; min-height:36px; }',
+      '.session-manager-action:hover { background:rgba(128,128,128,.12); border-color:rgba(128,128,128,.3); }',
+      '.session-manager-action:active { background:rgba(128,128,128,.18); }',
+      '.session-manager-icon { flex:0 0 1em; font-size:1.125rem; }',
+      '.session-manager-backdrop { position:fixed; inset:0; z-index:100000; display:grid; place-items:center; background:rgba(0,0,0,.45); pointer-events:auto; touch-action:none; }',
+      '.session-manager-dialog { width:min(92vw,400px); height:min(58vh,480px); max-height:min(58vh,480px); display:flex; flex-direction:column; background:var(--dsh-panel-bg,#fff); color:var(--dsh-panel-fg,#111); border-radius:12px; box-shadow:0 4px 24px rgba(0,0,0,.25); overflow:hidden; touch-action:auto; }',
+      '.session-manager-header { display:flex; align-items:center; gap:.5rem; padding:.75rem 1rem; border-bottom:1px solid rgba(128,128,128,.2); flex-shrink:0; }',
+      '.session-manager-title { font-size:1rem; font-weight:600; margin:0; min-width:0; flex:1; }',
+      '.session-manager-tabs { display:flex; gap:.25rem; }',
+      '.session-manager-tab { border:0; background:transparent; color:inherit; font:inherit; padding:.3rem .6rem; border-radius:.375rem; cursor:pointer; font-size:.875rem; }',
+      '.session-manager-tab:hover { background:rgba(128,128,128,.1); }',
       '.session-manager-tab-active { background:rgba(128,128,128,.15); font-weight:600; }',
       '.session-manager-close { border:0; background:transparent; color:inherit; font-size:1.25rem; line-height:1; cursor:pointer; padding:.25rem .5rem; border-radius:.375rem; }',
       '.session-manager-close:hover { background:rgba(128,128,128,.12); }',
-      '.session-manager-body { flex:1 1 auto; min-height:0; overflow:auto; padding:1rem; }',
+      '.session-manager-body { flex:1 1 auto; min-height:0; overflow:auto; padding:.75rem 1rem 1rem; }',
       '.session-manager-toolbar { display:flex; align-items:center; gap:.5rem; margin-bottom:.75rem; flex-wrap:wrap; }',
-      '.session-manager-toolbar-action { border:1px solid rgba(128,128,128,.25); background:transparent; color:inherit; font:inherit; font-size:.875rem; padding:.25rem .6rem; border-radius:.375rem; cursor:pointer; }',
+      '.session-manager-toolbar-action { border:1px solid rgba(128,128,128,.25); background:transparent; color:inherit; font:inherit; font-size:.8125rem; padding:.25rem .6rem; border-radius:.375rem; cursor:pointer; }',
+      '.session-manager-toolbar-action:hover { background:rgba(128,128,128,.08); }',
       '.session-manager-toolbar-action:disabled { opacity:.5; cursor:default; }',
       '.session-manager-danger { color:#c0392b; border-color:rgba(192,57,43,.4); }',
-      '.session-manager-row { display:flex; flex-direction:column; gap:.25rem; padding:.5rem 0; border-bottom:1px solid rgba(128,128,128,.14); }',
-      '.session-manager-row-title { display:flex; align-items:center; justify-content:space-between; gap:.5rem; border:0; background:transparent; color:inherit; font:inherit; text-align:left; padding:0; cursor:pointer; min-width:0; }',
-      '.session-manager-row-time { color:inherit; opacity:.65; font-size:.75rem; white-space:nowrap; }',
-      '.session-manager-preview { font-size:.8125rem; opacity:.8; overflow:hidden; }',
+      '.session-manager-danger:hover { background:rgba(192,57,43,.08); }',
+      '.session-manager-row { display:flex; flex-direction:column; gap:.25rem; padding:.6rem 0; border-bottom:1px solid rgba(128,128,128,.12); }',
+      '.session-manager-row:last-child { border-bottom:0; }',
+      '.session-manager-row-title { display:flex; align-items:center; justify-content:space-between; gap:.5rem; border:0; background:transparent; color:inherit; font:inherit; font-size:.9rem; font-weight:500; text-align:left; padding:0; cursor:pointer; min-width:0; }',
+      '.session-manager-row-title:hover { opacity:.85; }',
+      '.session-manager-row-time { color:inherit; opacity:.55; font-size:.75rem; white-space:nowrap; }',
+      '.session-manager-preview { font-size:.8125rem; opacity:.75; overflow:hidden; line-height:1.4; }',
       '.session-manager-preview-line { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }',
-      '.session-manager-preview-user::before { content:"你："; font-weight:600; }',
-      '.session-manager-preview-assistant::before { content:"AI："; font-weight:600; }',
-      '.session-manager-row-actions { display:flex; gap:.5rem; align-items:center; }',
+      '.session-manager-preview-user::before { content:"你："; font-weight:600; opacity:1; }',
+      '.session-manager-preview-assistant::before { content:"AI："; font-weight:600; opacity:1; }',
+      '.session-manager-row-actions { display:flex; gap:.5rem; align-items:center; margin-top:.125rem; }',
       '.session-manager-row-action { border:0; background:transparent; color:#c0392b; font:inherit; font-size:.8125rem; padding:.2rem .5rem; border-radius:.375rem; cursor:pointer; }',
+      '.session-manager-row-action:hover { background:rgba(192,57,43,.08); }',
       '.session-manager-row-action:disabled { opacity:.5; cursor:default; }',
-      '.session-manager-hint { font-size:.75rem; opacity:.6; }',
-      '.session-manager-missing { font-size:.8125rem; opacity:.7; padding:.25rem 0; }',
-      '.session-manager-empty { padding:2rem 1rem; text-align:center; opacity:.7; }',
-      '.session-manager-loading { padding:1rem; text-align:center; opacity:.7; }',
-      '.session-manager-error { padding:.5rem; background:rgba(192,57,43,.08); border-radius:6px; color:#c0392b; margin-bottom:.75rem; }',
-      '.session-manager-list { display:flex; flex-direction:column; }'
+      '.session-manager-hint { font-size:.75rem; opacity:.55; }',
+      '.session-manager-missing { font-size:.8125rem; opacity:.6; padding:.25rem 0; font-style:italic; }',
+      '.session-manager-empty { padding:2rem 1rem; text-align:center; opacity:.6; font-size:.9rem; }',
+      '.session-manager-loading { padding:1.5rem; text-align:center; opacity:.6; }',
+      '.session-manager-error { padding:.5rem .75rem; background:rgba(192,57,43,.08); border-radius:6px; color:#c0392b; margin-bottom:.75rem; font-size:.875rem; }',
+      '.session-manager-list { display:flex; flex-direction:column; }',
+      '.session-manager-checkbox { width:16px; height:16px; flex-shrink:0; }'
     ].join('\n')
 
     function injectStyle () {

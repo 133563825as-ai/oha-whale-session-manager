@@ -19,10 +19,10 @@ async function fixture (options = {}) {
   await writeFile(join(source, 'session.jsonl.zstd'), 'artifact')
   await writeFile(join(source, 'metadata.json'), 'keep me')
   const headers = [
-    { id: archivedId, title: 'Archived', cwd: '/work', updatedAt: '2026-01-02T00:00:00.000Z' },
-    { id: otherId, title: 'Missing', cwd: '/gone', updatedAt: '2026-01-03T00:00:00.000Z' },
-    { id: liveId, title: 'Live', cwd: '/live', updatedAt: '2026-01-04T00:00:00.000Z' },
-    { id: numericId, title: 'Numeric', cwd: '/numeric', updatedAt: 3000000000000 },
+    { id: archivedId, version: 0, createdAt: 1000, cwd: '/work/demo' },
+    { id: otherId, version: 0, createdAt: 2000, cwd: '/gone' },
+    { id: liveId, version: 0, createdAt: 3000, cwd: '/live' },
+    { id: numericId, version: 0, createdAt: 3000000000000, cwd: '/numeric' },
   ]
   const sessionPersistence = {
     list: async () => headers,
@@ -59,9 +59,12 @@ test('lists archived sessions with numeric and date updatedAt ordering', async (
     const entries = await f.store.listArchived()
     assert.deepEqual(entries.map(({ id, missing }) => ({ id, missing })), [
       { id: numericId, missing: true },
-      { id: otherId, missing: true },
       { id: archivedId, missing: undefined },
+      { id: otherId, missing: true },
     ])
+    assert.equal(entries.find((e) => e.id === archivedId).title, 'demo')
+    assert.equal(entries.find((e) => e.id === numericId).title, 'numeric')
+    assert.equal(entries.find((e) => e.id === otherId).title, 'gone')
   } finally { await rm(f.root, { recursive: true, force: true }) }
 })
 
@@ -88,7 +91,7 @@ test('trashes with manifest, preserves every source file, and restores metadata'
   try {
     assert.deepEqual(await f.store.trash([archivedId]), { moved: [archivedId] })
     const manifest = JSON.parse(await readFile(join(f.trashRoot, archivedId, 'manifest.json'), 'utf8'))
-    assert.deepEqual(manifest, { version: 1, sessionId: archivedId, originalDir: f.source, title: 'Archived', cwd: '/work', updatedAt: '2026-01-02T00:00:00.000Z', deletedAt: 30 })
+    assert.deepEqual(manifest, { version: 1, sessionId: archivedId, originalDir: f.source, title: 'demo', cwd: '/work/demo', updatedAt: 1000, deletedAt: 30 })
     assert.equal(await readFile(join(f.trashRoot, archivedId, 'metadata.json'), 'utf8'), 'keep me')
     assert.deepEqual(await f.store.restore([archivedId]), { restored: [archivedId] })
     assert.equal(await readFile(join(f.source, 'metadata.json'), 'utf8'), 'keep me')
