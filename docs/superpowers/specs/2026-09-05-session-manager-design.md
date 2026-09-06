@@ -73,9 +73,9 @@ DSH 的侧边栏已经能新建、切换、搜索、重命名、分叉、归档�
 
 | 需要的数据 | 来源 |
 | --- | --- |
-| 归档会话 id 名单 | `useWorkspaces(s => s.archivedSessionIds)`——主机侧持久化的全局归档集合，不是浏览器本地存储 |
-| 标题、最后活动时间、是否当前打开 | `useSessions(...)` 的会话列表状态 |
-| 一问一答预览 | 主机接口（客户端拿不到文件） |
+| 归档会话列表、标题、最后活动时间 | 主机接口统一读取 `workspaceRegistry.archivedSessionIds` + `sessionPersistence.list()`；避免归档会话已从普通客户端列表隐藏后无法展示 |
+| 当前打开会话 | 客户端 `useSessions(s => s.current)`，用于禁止删除当前会话 |
+| 一问一答预览 | 主机接口；客户端拿不到文件 |
 | 删除 / 恢复 / 清空 / 回收站列表 | 主机接口 |
 
 座位注册沿用仓库内已验证的写法（`dsha-api-dashboard/client/client.js` 与 `dsha-web-mobile/lib/client.js` 是现成模板）：
@@ -100,7 +100,7 @@ ctx.slots.inject("<座位名>", () => ctx.slots.register({
 | `POST …/restore` | 把回收站里的会话搬回原位 |
 | `POST …/purge` | 彻底删除回收站内容 |
 
-预览实现：流式解压 `session.jsonl.zstd`，只取尾部若干条 `user/message` 与 `assistant/message` 事件的文本块，截断后返回。不整份解压、不缓存正文。
+预览实现：通过 `ctx.sessionPersistence.inspect(sessionId)` 读取框架已经校验并展开的逻辑事件（由持久化后端处理 zstd 帧、打包 chunk 与损坏尾帧），然后只挑最后的 `user/message` 与 `assistant/message` 事件文本，截断后返回。不缓存正文、不改写任何事件。zstd 不能可靠地只解文件尾部，禁止插件自己解析压缩帧。
 
 ### 磁盘布局
 
