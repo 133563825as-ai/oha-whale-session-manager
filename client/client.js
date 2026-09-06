@@ -551,6 +551,8 @@ window.__ModuleLoader__.load({
 .sm-action:active{transform:scale(.985);opacity:.9}
 .sm-action svg{flex:none;font-size:1.125rem}
 
+[data-shell-overlay]{z-index:100!important}
+
 .sm-backdrop{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(0,0,0,.35);animation:sm-fadein .15s ease-out;pointer-events:auto;touch-action:none}
 
 .sm-dialog{width:min(92vw,420px);max-height:min(80vh,560px);display:flex;flex-direction:column;background:var(--dsw-specific-panel-fill,#f5f6f8);color:var(--dsw-alias-label-primary,#17181c);border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;touch-action:auto;animation:sm-pop .2s cubic-bezier(.16,1,.3,1)}
