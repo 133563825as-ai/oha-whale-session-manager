@@ -202,6 +202,37 @@ window.__ModuleLoader__.load({
       })
     }
 
+    /* --- custom category dropdown --- */
+    function CategorySelect (props) {
+      const [open, setOpen] = react.useState(false)
+      const ref = react.useRef(null)
+      const value = props.value
+      const options = props.options || []
+      const current = options.find(([key]) => key === value)
+      react.useEffect(() => {
+        if (!open) return
+        const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+        document.addEventListener('click', onDoc)
+        return () => document.removeEventListener('click', onDoc)
+      }, [open])
+      return react.createElement('div', { className: 'sm-select-wrap', ref },
+        react.createElement('button', {
+          className: 'sm-select-trigger',
+          onClick: (e) => { e.stopPropagation(); setOpen(!open) }
+        },
+          react.createElement('span', { className: 'sm-select-value' }, current ? current[1] : ''),
+          react.createElement('span', { className: 'sm-select-arrow' }, '\u25be')
+        ),
+        open ? react.createElement('div', { className: 'sm-select-menu' },
+          options.map(([key, label]) => react.createElement('button', {
+            key,
+            className: key === value ? 'sm-option sm-option-on' : 'sm-option',
+            onClick: (e) => { e.stopPropagation(); props.onChange(key); setOpen(false) }
+          }, label))
+        ) : null
+      )
+    }
+
     /* --- sidebar button --- */
     function SidebarAction (props) {
       const t = makeT(props.t)
@@ -492,19 +523,19 @@ window.__ModuleLoader__.load({
           react.createElement('div', { className: 'sm-category-title' }, t.category),
           react.createElement('div', { className: 'sm-category-row' },
             react.createElement('span', { className: 'sm-category-label' }, t.workspaceLabel),
-            react.createElement('select', {
-              className: 'sm-category-select',
+            react.createElement(CategorySelect, {
               value: workspaceFilter,
-              onChange: (e) => setWorkspaceFilter(e.target.value)
-            }, workspaceOptions.map(([value, label]) => react.createElement('option', { key: value, value }, label)))
+              options: workspaceOptions,
+              onChange: setWorkspaceFilter
+            })
           ),
           react.createElement('div', { className: 'sm-category-row' },
             react.createElement('span', { className: 'sm-category-label' }, t.timeLabel),
-            react.createElement('select', {
-              className: 'sm-category-select',
+            react.createElement(CategorySelect, {
               value: filter,
-              onChange: (e) => setFilter(e.target.value)
-            }, timeOptions.map(([value, label]) => react.createElement('option', { key: value, value }, label)))
+              options: timeOptions,
+              onChange: setFilter
+            })
           )
         )
       }
@@ -605,6 +636,15 @@ window.__ModuleLoader__.load({
 .sm-category-label{font-size:11px;color:#777b84;line-height:1.2}
 .sm-category-select{width:100%;height:30px;min-width:0;border:1px solid #e7e8ec;background:#fff;color:#17181c;font:inherit;font-size:12px;padding:0 8px;border-radius:9px;outline:none}
 .sm-category-select:focus{border-color:#4f7cff}
+.sm-select-wrap{position:relative;min-width:0}
+.sm-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;height:30px;border:1px solid #e7e8ec;background:#fff;color:#17181c;font:inherit;font-size:12px;padding:0 8px;border-radius:9px;cursor:pointer;outline:none}
+.sm-select-trigger:focus{border-color:#4f7cff}
+.sm-select-value{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.sm-select-arrow{flex:none;font-size:9px;color:#777b84}
+.sm-select-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:110;background:#fff;border:1px solid #e7e8ec;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.12);padding:4px;max-height:180px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.sm-option{display:block;width:100%;text-align:left;padding:8px 10px;font-size:12px;color:#17181c;background:transparent;border:0;border-radius:8px;cursor:pointer}
+.sm-option:hover{background:#f0f4ff}
+.sm-option-on{color:#4f7cff;background:#eef2ff}
 
 .sm-filter{display:flex;gap:6px;padding:2px 0 8px;flex-wrap:wrap}
 .sm-filter-btn{border:1px solid #e7e8ec;background:#fff;color:#686c76;font:inherit;font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;cursor:pointer;transition:all .12s ease}
@@ -672,6 +712,12 @@ window.__ModuleLoader__.load({
 .sm-category-label{color:#8b91a0}
 .sm-category-select{background:#262a33;border-color:#363c48;color:#d3d7e0}
 .sm-category-select:focus{border-color:#4f7cff}
+.sm-select-trigger{background:#262a33;border-color:#363c48;color:#d3d7e0}
+.sm-select-arrow{color:#8b91a0}
+.sm-select-menu{background:#262a33;border-color:#363c48}
+.sm-option{color:#d3d7e0}
+.sm-option:hover{background:rgba(79,124,255,.12)}
+.sm-option-on{color:#8ba4ff;background:rgba(79,124,255,.18)}
 .sm-pull{color:#6b7080}
 .sm-ws-icon{background:rgba(79,124,255,.18);color:#8ba4ff}
 .sm-ws-header{background:#262a33;border-color:#363c48}
