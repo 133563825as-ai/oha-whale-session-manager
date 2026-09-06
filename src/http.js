@@ -111,7 +111,7 @@ async function dispatch (req, res, store) {
 
   if (pathname === '/session-manager/purge') {
     if (method !== 'POST') return methodNotAllowed(res, 'POST')
-    const body = await parseJsonBody(req, undefined, { allowEmpty: true })
+    const body = await parseJsonBody(req, 256 * 1024, { allowEmpty: true })
     const ids = validateIds(body.ids, { allowOmit: true })
     const result = await store.purge(ids)
     return sendJson(res, 200, { ok: true, ...result })

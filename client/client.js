@@ -166,8 +166,8 @@ window.__ModuleLoader__.load({
       const [busyIds, setBusyIds] = react.useState(new Set())
       const [error, setError] = react.useState('')
 
-      const startBusy = (id) => { const n = new Set(busyIds); n.add(id); setBusyIds(n) }
-      const endBusy = (id) => { const n = new Set(busyIds); n.delete(id); setBusyIds(n) }
+      const startBusy = (id) => setBusyIds(prev => { const n = new Set(prev); n.add(id); return n })
+      const endBusy = (id) => setBusyIds(prev => { const n = new Set(prev); n.delete(id); return n })
 
       const loadArchives = react.useCallback(async () => {
         setLoading(true); setError('')
@@ -209,14 +209,14 @@ window.__ModuleLoader__.load({
       const toggleSelectAll = () => { setSelectedIds(selectedIds.size === archives.length ? new Set() : new Set(archives.map((r) => r.id))) }
 
       const doTrash = async (ids) => {
-        startBusy(ids[0] || '*')
+        ids.forEach(startBusy)
         try { await fetchJson(TRASH_ACTION_URL, { method: 'POST', body: JSON.stringify({ ids }) }); setError(''); await refreshAll() }
-        catch (e) { setError(e.message || t.errorPrefix) } finally { endBusy(ids[0] || '*') }
+        catch (e) { setError(e.message || FALLBACK_ERROR) } finally { ids.forEach(endBusy) }
       }
       const doRestore = async (ids) => {
-        startBusy(ids[0] || '*')
+        ids.forEach(startBusy)
         try { await fetchJson(RESTORE_URL, { method: 'POST', body: JSON.stringify({ ids }) }); setError(''); await refreshAll() }
-        catch (e) { setError(e.message || t.errorPrefix) } finally { endBusy(ids[0] || '*') }
+        catch (e) { setError(e.message || FALLBACK_ERROR) } finally { ids.forEach(endBusy) }
       }
       const doPurge = async () => {
         startBusy('*')
@@ -242,7 +242,7 @@ window.__ModuleLoader__.load({
 
         /* checkbox (selection mode) */
         if (selectionMode && kind === 'archive') {
-          children.push(react.createElement('input', { key: 'cb', type: 'checkbox', className: 'sm-cb', checked: isSelected, onChange: () => toggleSelect(row.id) }))
+          children.push(react.createElement('input', { key: 'cb', type: 'checkbox', className: 'sm-cb', checked: isSelected, onChange: () => toggleSelect(row.id), onClick: (e) => e.stopPropagation() }))
         }
 
         /* left: icon */
