@@ -458,52 +458,6 @@ window.__ModuleLoader__.load({
         return react.createElement('div', { key: row.id, className: cls.join(' '), onClick: selectionMode && kind === 'archive' ? () => toggleSelect(row.id) : undefined }, children)
       }
 
-      function renderWorkspaceGroup (ws, rows) {
-        const children = []
-        children.push(react.createElement('div', { key: 'icon', className: 'sm-ws-icon' },
-          react.createElement('img', { className: 'sm-ws-icon-img', src: MASCOT_URI, alt: '哦鲸鲸' })
-        ))
-        const info = []
-        info.push(react.createElement('div', { key: 'title', className: 'sm-ws-title' }, ws.title))
-        info.push(react.createElement('div', { key: 'path', className: 'sm-ws-meta' }, ws.path))
-        info.push(react.createElement('div', { key: 'count', className: 'sm-ws-meta' }, t.sessionCount.replace('{count}', String(ws.sessionCount)) + ' · ' + t.archivedCount.replace('{count}', String(ws.archivedCount))))
-        children.push(react.createElement('div', { key: 'info', className: 'sm-ws-info' }, info))
-        return react.createElement('div', { key: 'ws-' + ws.id, className: 'sm-ws-group' },
-          react.createElement('div', { className: 'sm-ws-header' }, children),
-          react.createElement('div', { className: 'sm-list' }, rows.map((r) => renderCard(r, 'archive')))
-        )
-      }
-
-      function renderUngroupedGroup (rows) {
-        const children = [
-          react.createElement('div', { key: 'icon', className: 'sm-ws-icon' },
-            react.createElement('img', { className: 'sm-ws-icon-img', src: MASCOT_URI, alt: '哦鲸鲸' })
-          ),
-          react.createElement('div', { key: 'info', className: 'sm-ws-info' },
-            react.createElement('div', { key: 'title', className: 'sm-ws-title' }, t.ungrouped),
-            react.createElement('div', { key: 'count', className: 'sm-ws-meta' }, t.archivedCount.replace('{count}', String(rows.length)))
-          )
-        ]
-        return react.createElement('div', { key: 'ungrouped', className: 'sm-ws-group' },
-          react.createElement('div', { className: 'sm-ws-header' }, children),
-          react.createElement('div', { className: 'sm-list' }, rows.map((r) => renderCard(r, 'archive')))
-        )
-      }
-
-      function renderArchiveGroups () {
-        const byPath = new Map(workspaces.map((ws) => [ws.path, ws]))
-        const groups = []
-        for (const ws of workspaces) {
-          const rows = filteredArchives.filter((row) => row.cwd === ws.path)
-          if (rows.length > 0) groups.push({ ws, rows })
-        }
-        const assigned = new Set(workspaces.map((ws) => ws.path))
-        const ungroupedRows = filteredArchives.filter((row) => !assigned.has(row.cwd))
-        const out = groups.map(({ ws, rows }) => renderWorkspaceGroup(ws, rows))
-        if (ungroupedRows.length > 0) out.push(renderUngroupedGroup(ungroupedRows))
-        return out
-      }
-
       /* --- toolbar --- */
       function renderToolbar () {
         const btns = []
@@ -568,9 +522,7 @@ window.__ModuleLoader__.load({
       } else if (tab === 'archive') {
         body = filteredArchives.length === 0
           ? react.createElement('div', { className: 'sm-empty' }, archives.length === 0 ? t.emptyArchives : t.emptyArchives)
-          : workspaceFilter === 'all'
-            ? react.createElement('div', { className: 'sm-archive-groups' }, renderArchiveGroups())
-            : react.createElement('div', { className: 'sm-list' }, filteredArchives.map((r) => renderCard(r, 'archive')))
+          : react.createElement('div', { className: 'sm-list' }, filteredArchives.map((r) => renderCard(r, 'archive')))
       } else {
         body = trash.length === 0
           ? react.createElement('div', { className: 'sm-empty' }, t.emptyTrash)
