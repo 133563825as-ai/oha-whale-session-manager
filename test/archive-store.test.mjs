@@ -9,6 +9,7 @@ const archivedId = '11111111-1111-4111-8111-111111111111'
 const liveId = '22222222-2222-4222-8222-222222222222'
 const otherId = '33333333-3333-4333-8333-333333333333'
 const numericId = '44444444-4444-4444-8444-444444444444'
+const prefixedId = 'session-55555555-5555-4555-8555-555555555555'
 
 async function fixture (options = {}) {
   const root = await mkdtemp(join(tmpdir(), 'archive-store-'))
@@ -18,17 +19,22 @@ async function fixture (options = {}) {
   await mkdir(source, { recursive: true })
   await writeFile(join(source, 'session.jsonl.zstd'), 'artifact')
   await writeFile(join(source, 'metadata.json'), 'keep me')
+  const prefixedSource = join(sessionsRoot, prefixedId)
+  await mkdir(prefixedSource, { recursive: true })
+  await writeFile(join(prefixedSource, 'session.jsonl.zstd'), 'prefixed artifact')
   const headers = [
     { id: archivedId, version: 0, createdAt: 1000, cwd: '/work/demo' },
     { id: otherId, version: 0, createdAt: 2000, cwd: '/gone' },
     { id: liveId, version: 0, createdAt: 3000, cwd: '/live' },
     { id: numericId, version: 0, createdAt: 3000000000000, cwd: '/numeric' },
+    { id: prefixedId, version: 0, createdAt: 4000, cwd: '/prefixed' },
   ]
   const sessionPersistence = {
     list: async () => headers,
     locate: (meta) => {
       if (meta.id === otherId && options.locateFailure) throw new Error('locate failed')
-      return { path: join(sessionsRoot, meta.id === archivedId ? 'archived/session.jsonl.zstd' : `${meta.id}/session.jsonl.zstd`) }
+      const dir = meta.id === archivedId ? 'archived' : meta.id
+      return { path: join(sessionsRoot, `${dir}/session.jsonl.zstd`) }
     },
     inspect: async (id) => {
       if (id === otherId && options.inspectFailure) throw new Error('inspect failed')
@@ -43,7 +49,7 @@ async function fixture (options = {}) {
       }
     },
   }
-  const workspaceRegistry = { archivedSessionIds: new Set([archivedId, otherId, numericId]) }
+  const workspaceRegistry = { archivedSessionIds: new Set([archivedId, otherId, numericId, prefixedId]) }
   const sessions = { list: async () => [{ id: liveId, header: { id: liveId } }] }
   const store = createArchiveStore({ sessionPersistence, workspaceRegistry, sessions, sessionsRoot, trashRoot, now: () => 30, ...options })
   return { root, source, sessionsRoot, trashRoot, store, sessionPersistence, headers }
@@ -60,6 +66,7 @@ test('lists archived sessions with numeric and date updatedAt ordering', async (
     assert.deepEqual(entries.map(({ id, missing }) => ({ id, missing })), [
       { id: numericId, missing: true },
       { id: archivedId, missing: undefined },
+      { id: prefixedId, missing: undefined },
       { id: otherId, missing: true },
     ])
     assert.equal(entries.find((e) => e.id === archivedId).title, 'demo')
@@ -139,5 +146,20 @@ test('purges only validated trash entries and is irreversible', async () => {
     assert.deepEqual(await f.store.purge(), { purged: [archivedId] })
     assert.equal(await has(join(f.trashRoot, archivedId)), false)
     assert.deepEqual(await f.store.listTrash(), [])
+  } finally { await rm(f.root, { recursive: true, force: true }) }
+})
+
+test('accepts session-prefixed ids in validation, listing, and trash', async () => {
+  const f = await fixture()
+  try {
+    const entries = await f.store.listArchived()
+    const prefixed = entries.find((e) => e.id === prefixedId)
+    assert.ok(prefixed, 'prefixed id should appear in archived list')
+    assert.equal(prefixed.missing, undefined, 'prefixed id should not be missing')
+    assert.equal(typeof prefixed.title, 'string')
+    const preview = await f.store.previewSession(prefixedId)
+    assert.ok(preview.lastUser || preview.lastAssistant)
+    assert.deepEqual(await f.store.trash([prefixedId]), { moved: [prefixedId] })
+    assert.deepEqual(await f.store.restore([prefixedId]), { restored: [prefixedId] })
   } finally { await rm(f.root, { recursive: true, force: true }) }
 })

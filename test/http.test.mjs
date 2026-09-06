@@ -149,6 +149,21 @@ test('rejects invalid ids and unsupported methods', async () => {
   assert.match(methodRes.headers.Allow, /GET, POST/)
 })
 
+test('accepts session-prefixed ids in trash operations', async () => {
+  const prefixedId = 'session-66666666-6666-4666-8666-666666666666'
+  const calls = []
+  const handler = route({
+    trash: async (ids) => {
+      calls.push(ids)
+      return { moved: ids }
+    }
+  })
+  const res = response()
+  await handler(request('POST', JSON.stringify({ ids: [prefixedId] })), res)
+  assert.equal(res.status, 200)
+  assert.deepEqual(calls, [[prefixedId]])
+})
+
 test('returns 404 for unknown paths and hides internal errors', async () => {
   const handler = route()
   const notFoundRes = response()
