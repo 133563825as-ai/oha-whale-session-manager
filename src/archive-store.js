@@ -116,9 +116,9 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
     }
   }
 
-  async function previewSession (id) {
+  async function previewSession (id, headers) {
     requireSessionId(id)
-    const header = await headerFor(id)
+    const header = await headerFor(id, headers)
     if (!header) return { missing: true }
     const inspection = await sessionPersistence.inspect(id)
     const events = Array.isArray(inspection) ? inspection : (inspection?.events ?? [])
@@ -146,22 +146,37 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
 
   async function listArchived () {
     const headers = await getHeaders()
-    const entries = []
-    for (const id of archiveIds()) {
+    const ids = [...archiveIds()]
+    const entries = await Promise.all(ids.map(async (id) => {
       const header = await headerFor(id, headers)
-      if (!header) continue
+      if (!header) return null
       try {
         const artifactPath = sessionPersistence.locate(header).path
         if (!(await exists(artifactPath))) {
-          entries.push({ id, title: deriveTitle(header), updatedAt: deriveUpdatedAt(header), cwd: header.cwd, missing: true })
-          continue
+          return { id, title: deriveTitle(header), updatedAt: deriveUpdatedAt(header), cwd: header.cwd, missing: true }
         }
-        entries.push(await previewSession(id))
+        return await previewSession(id, headers)
       } catch {
-        entries.push({ id, title: deriveTitle(header), updatedAt: deriveUpdatedAt(header), cwd: header.cwd, missing: true })
+        return { id, title: deriveTitle(header), updatedAt: deriveUpdatedAt(header), cwd: header.cwd, missing: true }
       }
-    }
-    return entries.sort((left, right) => comparableTime(right.updatedAt) - comparableTime(left.updatedAt))
+    }))
+    return entries.filter(Boolean).sort((left, right) => comparableTime(right.updatedAt) - comparableTime(left.updatedAt))
+  }
+
+  async function listWorkspaces () {
+    const headers = await getHeaders()
+    const archived = archiveIds()
+    return workspaceRegistry.list().map((workspace) => {
+      const sessionIds = workspace.sessionIds
+      return {
+        id: workspace.id,
+        title: workspace.title,
+        path: workspace.path,
+        sessionCount: sessionIds.length,
+        archivedCount: sessionIds.filter((id) => archived.has(id)).length,
+        updatedAt: workspace.updatedAt
+      }
+    })
   }
 
   async function listTrash () {
@@ -176,6 +191,36 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
       trash.push({ id: manifest.sessionId, title: manifest.title, cwd: manifest.cwd, updatedAt: manifest.updatedAt, deletedAt: manifest.deletedAt })
     }
     return trash.sort((left, right) => comparableTime(right.deletedAt) - comparableTime(left.deletedAt))
+  }
+
+  async function unarchive (ids) {
+    const headers = await getHeaders()
+    const archived = archiveIds()
+    const valid = []
+    for (const id of ids) {
+      requireSessionId(id)
+      if (!archived.has(id)) throw new Error(`archived session not found: ${id}`)
+      const header = await headerFor(id, headers)
+      if (!header) throw new Error(`archived session not found: ${id}`)
+      valid.push(id)
+    }
+    if (valid.length === 0) return { unarchived: [] }
+    const remove = new Set(valid)
+    const enqueue = workspaceRegistry.enqueueOperation?.bind(workspaceRegistry)
+    const mutate = enqueue
+      ? enqueue(async () => {
+          const state = workspaceRegistry.requireState()
+          const next = state.archivedSessionIds.filter((id) => !remove.has(id))
+          if (next.length === state.archivedSessionIds.length) return
+          await workspaceRegistry.setState({ ...state, archivedSessionIds: next })
+        })
+      : (async () => {
+          const state = workspaceRegistry.requireState()
+          const next = state.archivedSessionIds.filter((id) => !remove.has(id))
+          if (next.length !== state.archivedSessionIds.length) await workspaceRegistry.setState({ ...state, archivedSessionIds: next })
+        })()
+    await mutate
+    return { unarchived: valid }
   }
 
   async function trash (ids) {
@@ -245,5 +290,5 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
     return { purged }
   }
 
-  return { listArchived, listTrash, trash, restore, purge, previewSession }
+  return { listArchived, listWorkspaces, listTrash, unarchive, trash, restore, purge, previewSession }
 }

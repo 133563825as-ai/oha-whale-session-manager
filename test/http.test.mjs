@@ -96,6 +96,31 @@ test('get archives and trash through the store', async () => {
   assert.deepEqual(JSON.parse(trashRes.body).trash, [{ id, title: 'Trashed' }])
 })
 
+test('gets workspaces through the store', async () => {
+  const handler = route({
+    listWorkspaces: async () => [{ id: 'ws-1', title: 'Demo', path: '/demo', sessionCount: 2, archivedCount: 1 }]
+  })
+  const res = response()
+  await handler(request('GET', null, '/session-manager/workspaces'), res)
+  assert.equal(res.status, 200)
+  assert.deepEqual(JSON.parse(res.body).workspaces, [{ id: 'ws-1', title: 'Demo', path: '/demo', sessionCount: 2, archivedCount: 1 }])
+})
+
+test('unarchives ids through the store', async () => {
+  const calls = []
+  const handler = route({
+    unarchive: async (ids) => {
+      calls.push(ids)
+      return { unarchived: ids }
+    }
+  })
+  const res = response()
+  await handler(request('POST', JSON.stringify({ ids: [id, otherId] }), '/session-manager/unarchive'), res)
+  assert.equal(res.status, 200)
+  assert.deepEqual(calls, [[id, otherId]])
+  assert.deepEqual(JSON.parse(res.body).unarchived, [id, otherId])
+})
+
 test('restores and purges ids through the store', async () => {
   const restored = []
   const purged = []

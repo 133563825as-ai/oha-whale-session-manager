@@ -75,7 +75,7 @@ test('client loader returns real inject and apply exports', async () => {
     }
   })
 
-  assert.deepEqual(Array.from(loaded.inject), ['slots', 'locale'])
+  assert.deepEqual(Array.from(loaded.inject), ['slots', 'locale', 'layout'])
   assert.equal(typeof loaded.apply, 'function')
 })
 
@@ -84,7 +84,8 @@ test('client declares modal behavior and archive routes', async () => {
   const requires = (text) => assert.match(source, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   for (const text of [
     'sidebar.footer.action', 'shell.overlay', 'dsh-session-manager',
-    '/session-manager/archives', '/session-manager/trash',
+    '/session-manager/archives', '/session-manager/workspaces',
+    '/session-manager/trash', '/session-manager/unarchive',
     'sm-backdrop'
   ]) requires(text)
   assert.match(source, /aria-modal(?:['"]\s*:\s*['"]true['"]|=["']true["'])/)
@@ -92,9 +93,9 @@ test('client declares modal behavior and archive routes', async () => {
   assert.match(source, /92vw/)
 })
 
-test('client contains archive and trash actions', async () => {
+test('client contains archive, workspace and trash actions', async () => {
   const source = await read('client/client.js')
-  for (const text of ['归档', '回收站', '选择', '全选', '删除所选', '恢复', '清空回收站']) {
+  for (const text of ['归档', '工作区', '回收站', '选择', '全选', '删除所选', '恢复所选', '恢复', '清空回收站', '下拉刷新']) {
     assert.match(source, new RegExp(text))
   }
   assert.match(source, /confirm|window\.confirm/)

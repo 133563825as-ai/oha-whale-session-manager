@@ -5,77 +5,116 @@ window.__ModuleLoader__.load({
 
     const NS = 'dsh-session-manager'
     const ARCHIVES_URL = '/session-manager/archives'
+    const WORKSPACES_URL = '/session-manager/workspaces'
     const TRASH_URL = '/session-manager/trash'
     const TRASH_ACTION_URL = '/session-manager/trash'
+    const UNARCHIVE_URL = '/session-manager/unarchive'
     const RESTORE_URL = '/session-manager/restore'
     const PURGE_URL = '/session-manager/purge'
 
     const zh = {
       dialogTitle: '会话管理',
       archiveTab: '归档',
+      workspaceTab: '工作区',
       trashTab: '回收站',
       close: '关闭',
       emptyArchives: '还没有归档的会话',
+      emptyWorkspaces: '还没有工作区',
       emptyTrash: '回收站是空的',
       sessionManager: '会话管理',
       sessionManagerAria: '打开会话管理',
       loading: '加载中...',
+      refreshing: '刷新中...',
+      pullHint: '下拉刷新',
       errorPrefix: '操作失败',
       select: '选择',
       cancelSelect: '取消选择',
       selectAll: '全选',
       cancelSelectAll: '取消全选',
       deleteSelected: '删除所选',
+      unarchiveSelected: '恢复所选',
       delete: '删除',
       restore: '恢复',
       purge: '清空回收站',
       confirmDelete: '确认删除该会话？删除会移入回收站，不会立即销毁。',
       confirmDeleteSelected: '确认删除所选 {count} 个会话？',
       confirmRestore: '确认恢复该会话？',
+      confirmUnarchive: '确认将该会话恢复到侧边栏？',
+      confirmUnarchiveSelected: '确认恢复所选 {count} 个会话到侧边栏？',
       confirmPurge: '确认清空回收站？回收站内容将被彻底删除，无法恢复。',
       missing: '记录已丢失',
       currentHint: '当前会话',
       emptySelection: '还没有选择会话',
       restoreSuccess: '已恢复',
+      unarchiveSuccess: '已恢复到侧边栏',
       trashSuccess: '已移入回收站',
-      purgeSuccess: '回收站已清空'
+      purgeSuccess: '回收站已清空',
+      filterAll: '全部',
+      filterDay: '一天内',
+      filterWeek: '七天内',
+      filterOlder: '七天以外',
+      sessionCount: '{count} 个会话',
+      archivedCount: '归档 {count}',
+      timeJustNow: '刚刚',
+      timeMinutesAgo: '{n} 分钟前',
+      timeHoursAgo: '{n} 小时前',
+      timeDaysAgo: '{n} 天前'
     }
 
     const en = {
       dialogTitle: 'Session Manager',
       archiveTab: 'Archive',
+      workspaceTab: 'Workspaces',
       trashTab: 'Trash',
       close: 'Close',
       emptyArchives: 'No archived sessions yet',
+      emptyWorkspaces: 'No workspaces yet',
       emptyTrash: 'Trash is empty',
       sessionManager: 'Sessions',
       sessionManagerAria: 'Open session manager',
       loading: 'Loading...',
+      refreshing: 'Refreshing...',
+      pullHint: 'Pull to refresh',
       errorPrefix: 'Operation failed',
       select: 'Select',
       cancelSelect: 'Cancel',
       selectAll: 'All',
       cancelSelectAll: 'Deselect',
       deleteSelected: 'Delete',
+      unarchiveSelected: 'Restore',
       delete: 'Delete',
       restore: 'Restore',
       purge: 'Empty trash',
       confirmDelete: 'Delete this session? It moves to trash and is not destroyed immediately.',
       confirmDeleteSelected: 'Delete {count} selected sessions?',
       confirmRestore: 'Restore this session?',
+      confirmUnarchive: 'Restore this session to the sidebar?',
+      confirmUnarchiveSelected: 'Restore {count} selected sessions to the sidebar?',
       confirmPurge: 'Empty the trash? Trash contents will be permanently deleted and cannot be restored.',
       missing: 'Record lost',
       currentHint: 'Current',
       emptySelection: 'No sessions selected',
       restoreSuccess: 'Restored',
+      unarchiveSuccess: 'Restored to sidebar',
       trashSuccess: 'Moved to trash',
-      purgeSuccess: 'Trash emptied'
+      purgeSuccess: 'Trash emptied',
+      filterAll: 'All',
+      filterDay: 'Last day',
+      filterWeek: 'Last 7 days',
+      filterOlder: 'Older',
+      sessionCount: '{count} sessions',
+      archivedCount: '{count} archived',
+      timeJustNow: 'Just now',
+      timeMinutesAgo: '{n} min ago',
+      timeHoursAgo: '{n} h ago',
+      timeDaysAgo: '{n} d ago'
     }
 
     /* --- store (modal open state) --- */
     const listeners = new Set()
     let open = false
     let historyCreated = false
+    let openSidebar = null
 
     function subscribe (listener) { listeners.add(listener); return () => listeners.delete(listener) }
     function getSnapshot () { return open }
@@ -83,6 +122,7 @@ window.__ModuleLoader__.load({
 
     function openModal () {
       if (open) return
+      if (openSidebar) openSidebar()
       historyCreated = true
       history.pushState({ dshSessionManager: true }, '')
       setOpen(true)
@@ -104,15 +144,16 @@ window.__ModuleLoader__.load({
       return data
     }
 
-    function timeAgo (value) {
+    function timeAgo (value, t) {
       if (!value) return ''
       const ms = typeof value === 'number' ? value : Date.parse(value)
       if (!Number.isFinite(ms)) return ''
       const diff = Date.now() - ms
-      if (diff < 60000) return 'just now'
-      if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago'
-      if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago'
-      if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago'
+      const format = (key, params) => t ? t(key, params) : key
+      if (diff < 60000) return format('timeJustNow')
+      if (diff < 3600000) return format('timeMinutesAgo', { n: Math.floor(diff / 60000) })
+      if (diff < 86400000) return format('timeHoursAgo', { n: Math.floor(diff / 3600000) })
+      if (diff < 604800000) return format('timeDaysAgo', { n: Math.floor(diff / 86400000) })
       return new Date(ms).toLocaleDateString()
     }
 
@@ -160,7 +201,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /* --- main overlay --- */
+    /* --- main overlay / sidebar panel --- */
     function Overlay (props) {
       const t = makeT(props.t)
       const useSessions = props.useSessions
@@ -169,40 +210,101 @@ window.__ModuleLoader__.load({
 
       const [tab, setTab] = react.useState('archive')
       const [archives, setArchives] = react.useState([])
+      const [workspaces, setWorkspaces] = react.useState([])
       const [trash, setTrash] = react.useState([])
       const [selectedIds, setSelectedIds] = react.useState(new Set())
       const [selectionMode, setSelectionMode] = react.useState(false)
       const [loading, setLoading] = react.useState(false)
+      const [refreshing, setRefreshing] = react.useState(false)
+      const [filter, setFilter] = react.useState('all')
+      const [expandedWorkspace, setExpandedWorkspace] = react.useState(null)
+      const [pullY, setPullY] = react.useState(0)
       const [busyIds, setBusyIds] = react.useState(new Set())
       const [error, setError] = react.useState('')
+      const loadedRef = react.useRef({ archive: false, workspace: false, trash: false })
+      const bodyRef = react.useRef(null)
+      const touchStartYRef = react.useRef(0)
 
       const startBusy = (id) => setBusyIds(prev => { const n = new Set(prev); n.add(id); return n })
       const endBusy = (id) => setBusyIds(prev => { const n = new Set(prev); n.delete(id); return n })
 
-      const loadArchives = react.useCallback(async () => {
-        setLoading(true); setError('')
-        try { const d = await fetchJson(ARCHIVES_URL); setArchives(d.archives || []) }
-        catch (e) { setError(e.message || FALLBACK_ERROR) } finally { setLoading(false) }
+      const loadArchives = react.useCallback(async (manual = false) => {
+        if (!manual && loadedRef.current.archive) return
+        if (!loadedRef.current.archive) setLoading(true)
+        else setRefreshing(true)
+        setError('')
+        try {
+          const d = await fetchJson(ARCHIVES_URL)
+          setArchives(d.archives || [])
+          loadedRef.current.archive = true
+        } catch (e) {
+          setError(e.message || FALLBACK_ERROR)
+        } finally {
+          setLoading(false)
+          setRefreshing(false)
+        }
       }, [])
 
-      const loadTrash = react.useCallback(async () => {
-        setLoading(true); setError('')
-        try { const d = await fetchJson(TRASH_URL); setTrash(d.trash || []) }
-        catch (e) { setError(e.message || FALLBACK_ERROR) } finally { setLoading(false) }
+      const loadWorkspaces = react.useCallback(async (manual = false) => {
+        if (!manual && loadedRef.current.workspace) return
+        if (!loadedRef.current.workspace) setLoading(true)
+        else setRefreshing(true)
+        setError('')
+        try {
+          const d = await fetchJson(WORKSPACES_URL)
+          setWorkspaces(d.workspaces || [])
+          loadedRef.current.workspace = true
+        } catch (e) {
+          setError(e.message || FALLBACK_ERROR)
+        } finally {
+          setLoading(false)
+          setRefreshing(false)
+        }
+      }, [])
+
+      const loadTrash = react.useCallback(async (manual = false) => {
+        if (!manual && loadedRef.current.trash) return
+        if (!loadedRef.current.trash) setLoading(true)
+        else setRefreshing(true)
+        setError('')
+        try {
+          const d = await fetchJson(TRASH_URL)
+          setTrash(d.trash || [])
+          loadedRef.current.trash = true
+        } catch (e) {
+          setError(e.message || FALLBACK_ERROR)
+        } finally {
+          setLoading(false)
+          setRefreshing(false)
+        }
       }, [])
 
       const refreshAll = react.useCallback(async () => {
-        setLoading(true); setError('')
-        try {
-          const [a, b] = await Promise.all([fetchJson(ARCHIVES_URL), fetchJson(TRASH_URL)])
-          setArchives(a.archives || []); setTrash(b.trash || [])
-        } catch (e) { setError(e.message || FALLBACK_ERROR) } finally { setLoading(false) }
-      }, [])
+        const tasks = []
+        if (loadedRef.current.archive) tasks.push(loadArchives(true))
+        if (loadedRef.current.workspace) tasks.push(loadWorkspaces(true))
+        if (loadedRef.current.trash) tasks.push(loadTrash(true))
+        await Promise.all(tasks)
+      }, [loadArchives, loadWorkspaces, loadTrash])
+
+      const manualRefresh = react.useCallback(() => {
+        if (tab === 'archive') return loadArchives(true)
+        if (tab === 'workspace') return loadWorkspaces(true)
+        if (tab === 'trash') return loadTrash(true)
+      }, [tab, loadArchives, loadWorkspaces, loadTrash])
 
       react.useEffect(() => {
-        if (!isOpen) { setTab('archive'); setSelectedIds(new Set()); setSelectionMode(false); setError(''); return }
-        if (tab === 'archive') loadArchives(); else loadTrash()
-      }, [isOpen, tab, loadArchives, loadTrash])
+        if (!isOpen) {
+          setTab('archive')
+          setSelectedIds(new Set())
+          setSelectionMode(false)
+          setError('')
+          return
+        }
+        if (tab === 'archive' && !loadedRef.current.archive) loadArchives()
+        else if (tab === 'workspace' && !loadedRef.current.workspace) loadWorkspaces()
+        else if (tab === 'trash' && !loadedRef.current.trash) loadTrash()
+      }, [isOpen, tab, loadArchives, loadWorkspaces, loadTrash])
 
       react.useEffect(() => {
         if (!isOpen) return
@@ -216,11 +318,28 @@ window.__ModuleLoader__.load({
       }, [isOpen])
 
       const toggleSelect = (id) => { const n = new Set(selectedIds); n.has(id) ? n.delete(id) : n.add(id); setSelectedIds(n) }
-      const toggleSelectAll = () => { setSelectedIds(selectedIds.size === archives.length ? new Set() : new Set(archives.map((r) => r.id))) }
+      const filteredArchives = (() => {
+        const cutoffDay = Date.now() - 86400000
+        const cutoffWeek = Date.now() - 604800000
+        return archives.filter((row) => {
+          const ms = typeof row.updatedAt === 'number' ? row.updatedAt : Date.parse(row.updatedAt || '')
+          if (!Number.isFinite(ms)) return filter === 'all'
+          if (filter === 'all') return true
+          if (filter === 'day') return ms >= cutoffDay
+          if (filter === 'week') return ms >= cutoffWeek
+          return ms < cutoffWeek
+        })
+      })()
+      const toggleSelectAll = () => { setSelectedIds(selectedIds.size === filteredArchives.length ? new Set() : new Set(filteredArchives.map((r) => r.id))) }
 
       const doTrash = async (ids) => {
         ids.forEach(startBusy)
         try { await fetchJson(TRASH_ACTION_URL, { method: 'POST', body: JSON.stringify({ ids }) }); setError(''); await refreshAll() }
+        catch (e) { setError(e.message || FALLBACK_ERROR) } finally { ids.forEach(endBusy) }
+      }
+      const doUnarchive = async (ids) => {
+        ids.forEach(startBusy)
+        try { await fetchJson(UNARCHIVE_URL, { method: 'POST', body: JSON.stringify({ ids }) }); setError(''); await refreshAll() }
         catch (e) { setError(e.message || FALLBACK_ERROR) } finally { ids.forEach(endBusy) }
       }
       const doRestore = async (ids) => {
@@ -234,6 +353,18 @@ window.__ModuleLoader__.load({
         catch (e) { setError(e.message || t.errorPrefix) } finally { endBusy('*') }
       }
 
+      const onTouchStart = (e) => { touchStartYRef.current = e.touches[0].clientY }
+      const onTouchMove = (e) => {
+        const el = bodyRef.current
+        if (!el || el.scrollTop > 0) return
+        const delta = e.touches[0].clientY - touchStartYRef.current
+        if (delta > 0) setPullY(Math.min(delta, 88))
+      }
+      const onTouchEnd = () => {
+        if (pullY > 48) manualRefresh()
+        setPullY(0)
+      }
+
       /* --- card renderer --- */
       function renderCard (row, kind) {
         const isCurrent = current === row.id
@@ -244,30 +375,23 @@ window.__ModuleLoader__.load({
         if (isSelected) cls.push('sm-card-selected')
 
         const title = row.title || (row.id ? row.id.slice(0, 8) : '?')
-        const workspace = row.cwdBase || row.cwd || ''
         const firstMsg = row.firstUser || ''
         const lastMsg = row.lastAssistant || row.lastUser || ''
 
         const children = []
 
-        /* checkbox (selection mode) */
         if (selectionMode && kind === 'archive') {
           children.push(react.createElement('input', { key: 'cb', type: 'checkbox', className: 'sm-cb', checked: isSelected, onChange: () => toggleSelect(row.id), onClick: (e) => e.stopPropagation() }))
         }
 
-        /* left: icon */
         const iconBg = isCurrent ? '#4f7cff' : (row.missing ? '#9ca0aa' : '#eef2ff')
         const iconColor = isCurrent ? '#fff' : (row.missing ? '#fff' : '#4f7cff')
         children.push(react.createElement('div', { key: 'icon', className: 'sm-card-icon', style: { background: iconBg, color: iconColor } },
           row.missing ? '!' : (title[0] ? title[0].toUpperCase() : '?')
         ))
 
-        /* center: info */
         const infoChildren = []
         infoChildren.push(react.createElement('div', { key: 'title', className: 'sm-card-title' }, title))
-        if (workspace) {
-          infoChildren.push(react.createElement('div', { key: 'ws', className: 'sm-card-meta' }, workspace))
-        }
         if (row.missing) {
           infoChildren.push(react.createElement('div', { key: 'miss', className: 'sm-card-miss' }, t.missing))
         } else {
@@ -276,14 +400,17 @@ window.__ModuleLoader__.load({
         }
         children.push(react.createElement('div', { key: 'info', className: 'sm-card-info' }, infoChildren))
 
-        /* right: time + action */
         const rightChildren = []
-        const timeStr = timeAgo(kind === 'trash' ? (row.deletedAt || row.updatedAt) : row.updatedAt)
+        const timeStr = timeAgo(kind === 'trash' ? (row.deletedAt || row.updatedAt) : row.updatedAt, t)
         if (timeStr) rightChildren.push(react.createElement('div', { key: 'time', className: 'sm-card-time' }, timeStr))
         if (kind === 'archive' && !row.missing && !selectionMode) {
           if (isCurrent) {
             rightChildren.push(react.createElement('span', { key: 'cur', className: 'sm-card-hint' }, t.currentHint))
           } else {
+            rightChildren.push(react.createElement('button', {
+              key: 'up', className: 'sm-card-action sm-card-action-ok', disabled: isBusy,
+              onClick: (e) => { e.stopPropagation(); if (!window.confirm(t.confirmUnarchive)) return; doUnarchive([row.id]) }
+            }, IconRestore))
             rightChildren.push(react.createElement('button', {
               key: 'del', className: 'sm-card-action', disabled: isBusy,
               onClick: (e) => { e.stopPropagation(); if (!window.confirm(t.confirmDelete)) return; doTrash([row.id]) }
@@ -301,56 +428,110 @@ window.__ModuleLoader__.load({
         return react.createElement('div', { key: row.id, className: cls.join(' '), onClick: selectionMode && kind === 'archive' ? () => toggleSelect(row.id) : undefined }, children)
       }
 
+      function renderWorkspaceCard (ws) {
+        const expanded = expandedWorkspace === ws.id
+        const children = []
+        children.push(react.createElement('div', { key: 'icon', className: 'sm-card-icon', style: { background: '#eef2ff', color: '#4f7cff' } },
+          (ws.title || '?')[0] ? (ws.title || '?')[0].toUpperCase() : '?'
+        ))
+        const info = []
+        info.push(react.createElement('div', { key: 'title', className: 'sm-card-title' }, ws.title))
+        info.push(react.createElement('div', { key: 'path', className: 'sm-card-meta' }, ws.path))
+        info.push(react.createElement('div', { key: 'count', className: 'sm-card-meta' }, t.sessionCount.replace('{count}', String(ws.sessionCount)) + ' · ' + t.archivedCount.replace('{count}', String(ws.archivedCount))))
+        children.push(react.createElement('div', { key: 'info', className: 'sm-card-info' }, info))
+        children.push(react.createElement('div', { key: 'right', className: 'sm-card-right' }, react.createElement('span', { className: 'sm-card-hint' }, expanded ? '−' : '+')))
+        if (expanded) {
+          const rows = filteredArchives.filter((row) => row.cwd === ws.path)
+          children.push(react.createElement('div', { key: 'ws-rows', className: 'sm-ws-rows' },
+            rows.length === 0 ? react.createElement('div', { className: 'sm-empty' }, t.emptyArchives) : rows.map((r) => renderCard(r, 'archive'))
+          ))
+        }
+        return react.createElement('div', { key: ws.id, className: 'sm-card' + (expanded ? ' sm-card-expanded' : ''), onClick: () => setExpandedWorkspace(expanded ? null : ws.id) }, children)
+      }
+
       /* --- toolbar --- */
       function renderToolbar () {
+        const btns = []
         if (tab === 'archive') {
-          const btns = []
           btns.push(react.createElement('button', { key: 'sel', className: 'sm-tool-btn', onClick: () => { setSelectionMode(!selectionMode); setSelectedIds(new Set()) } }, selectionMode ? t.cancelSelect : t.select))
           if (selectionMode) {
-            btns.push(react.createElement('button', { key: 'all', className: 'sm-tool-btn', onClick: toggleSelectAll }, selectedIds.size === archives.length ? t.cancelSelectAll : t.selectAll))
+            btns.push(react.createElement('button', { key: 'all', className: 'sm-tool-btn', onClick: toggleSelectAll }, selectedIds.size === filteredArchives.length ? t.cancelSelectAll : t.selectAll))
+            btns.push(react.createElement('button', { key: 'up', className: 'sm-tool-btn', disabled: selectedIds.size === 0, onClick: () => { if (!window.confirm(t.confirmUnarchiveSelected.replace('{count}', String(selectedIds.size)))) return; doUnarchive(Array.from(selectedIds)); setSelectionMode(false) } }, t.unarchiveSelected + ' (' + selectedIds.size + ')'))
             btns.push(react.createElement('button', { key: 'del', className: 'sm-tool-btn sm-tool-danger', disabled: selectedIds.size === 0, onClick: () => { if (!window.confirm(t.confirmDeleteSelected.replace('{count}', String(selectedIds.size)))) return; doTrash(Array.from(selectedIds)); setSelectionMode(false) } }, t.deleteSelected + ' (' + selectedIds.size + ')'))
           }
-          return react.createElement('div', { className: 'sm-toolbar' }, btns)
+          btns.push(react.createElement('button', { key: 'refresh', className: 'sm-tool-btn', disabled: refreshing, onClick: () => manualRefresh() }, refreshing ? t.refreshing : t.pullHint))
+        } else if (tab === 'workspace') {
+          btns.push(react.createElement('button', { key: 'refresh', className: 'sm-tool-btn', disabled: refreshing, onClick: () => manualRefresh() }, refreshing ? t.refreshing : t.pullHint))
+        } else {
+          btns.push(react.createElement('button', { key: 'refresh', className: 'sm-tool-btn', disabled: refreshing, onClick: () => manualRefresh() }, refreshing ? t.refreshing : t.pullHint))
+          btns.push(react.createElement('button', { key: 'purge', className: 'sm-tool-btn sm-tool-danger', disabled: trash.length === 0, onClick: () => { if (!window.confirm(t.confirmPurge)) return; doPurge() } }, t.purge))
         }
-        return react.createElement('div', { className: 'sm-toolbar' },
-          react.createElement('button', { className: 'sm-tool-btn sm-tool-danger', disabled: trash.length === 0, onClick: () => { if (!window.confirm(t.confirmPurge)) return; doPurge() } }, t.purge)
+        return react.createElement('div', { className: 'sm-toolbar' }, btns)
+      }
+
+      function renderFilter () {
+        const options = [
+          ['all', t.filterAll],
+          ['day', t.filterDay],
+          ['week', t.filterWeek],
+          ['older', t.filterOlder]
+        ]
+        return react.createElement('div', { className: 'sm-filter' },
+          options.map(([key, label]) => react.createElement('button', {
+            key, className: filter === key ? 'sm-filter-btn sm-filter-on' : 'sm-filter-btn', onClick: () => setFilter(key)
+          }, label))
         )
       }
 
       if (!isOpen) return null
 
+      const bodyChildren = []
+      if (pullY > 0 || refreshing) bodyChildren.push(react.createElement('div', { className: 'sm-pull' }, refreshing ? t.refreshing : t.pullHint))
+
       let body
-      if (loading) {
+      if (loading && (tab === 'archive' ? archives.length === 0 : tab === 'workspace' ? workspaces.length === 0 : trash.length === 0)) {
         body = react.createElement('div', { className: 'sm-loading' }, t.loading)
-      } else if (error) {
+      } else if (error && (tab === 'archive' ? archives.length === 0 : tab === 'workspace' ? workspaces.length === 0 : trash.length === 0)) {
         body = react.createElement('div', { className: 'sm-error' }, error)
       } else if (tab === 'archive') {
-        body = archives.length === 0
-          ? react.createElement('div', { className: 'sm-empty' }, t.emptyArchives)
-          : react.createElement('div', { className: 'sm-list' }, archives.map((r) => renderCard(r, 'archive')))
+        body = filteredArchives.length === 0
+          ? react.createElement('div', { className: 'sm-empty' }, archives.length === 0 ? t.emptyArchives : t.emptyArchives)
+          : react.createElement('div', { className: 'sm-list' }, filteredArchives.map((r) => renderCard(r, 'archive')))
+      } else if (tab === 'workspace') {
+        body = workspaces.length === 0
+          ? react.createElement('div', { className: 'sm-empty' }, t.emptyWorkspaces)
+          : react.createElement('div', { className: 'sm-list' }, workspaces.map((ws) => renderWorkspaceCard(ws)))
       } else {
         body = trash.length === 0
           ? react.createElement('div', { className: 'sm-empty' }, t.emptyTrash)
           : react.createElement('div', { className: 'sm-list' }, trash.map((r) => renderCard(r, 'trash')))
       }
+      bodyChildren.push(body)
 
-      return react.createElement('div', { className: 'sm-backdrop', onClick: closeModal },
+      return react.createElement('div', { className: 'sm-backdrop sm-panel-backdrop', onClick: closeModal },
         react.createElement('div', {
-          className: 'sm-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': t.dialogTitle,
+          className: 'sm-dialog sm-panel', role: 'dialog', 'aria-modal': 'true', 'aria-label': t.dialogTitle,
           onClick: (e) => e.stopPropagation(), onPointerDown: (e) => e.stopPropagation()
         },
-          /* header */
           react.createElement('div', { className: 'sm-header' },
             react.createElement('h2', { className: 'sm-title' }, t.dialogTitle),
             react.createElement('button', { className: 'sm-close', 'aria-label': t.close, onClick: closeModal }, IconClose)
           ),
-          /* tabs */
           react.createElement('div', { className: 'sm-tabs' },
             react.createElement('button', { className: tab === 'archive' ? 'sm-tab sm-tab-on' : 'sm-tab', onClick: () => setTab('archive') }, t.archiveTab),
+            react.createElement('button', { className: tab === 'workspace' ? 'sm-tab sm-tab-on' : 'sm-tab', onClick: () => setTab('workspace') }, t.workspaceTab),
             react.createElement('button', { className: tab === 'trash' ? 'sm-tab sm-tab-on' : 'sm-tab', onClick: () => setTab('trash') }, t.trashTab)
           ),
-          /* toolbar + body */
-          react.createElement('div', { className: 'sm-body' }, renderToolbar(), body)
+          react.createElement('div', {
+            ref: bodyRef,
+            className: 'sm-body' + (pullY > 0 ? ' sm-pulling' : ''),
+            style: pullY > 0 ? { transform: 'translateY(' + pullY + 'px)' } : undefined,
+            onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: onTouchEnd
+          },
+            tab === 'archive' ? react.createElement(react.Fragment, null, renderFilter()) : null,
+            renderToolbar(),
+            bodyChildren
+          )
         )
       )
     }
@@ -367,6 +548,10 @@ window.__ModuleLoader__.load({
 .sm-action svg{flex:none;font-size:1.125rem}
 
 .sm-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(0,0,0,.35);animation:sm-fadein .15s ease-out;pointer-events:auto;touch-action:none}
+
+/* Sidebar panel form: sits over the sidebar column, not over the chat area. */
+.sm-panel-backdrop{inset:0 auto 0 0;width:min(88vw,340px);background:rgba(0,0,0,.12);display:flex;align-items:stretch;justify-content:flex-start}
+.sm-panel{width:100%;height:100%;max-height:none;border-radius:0 16px 16px 0;box-shadow:8px 0 24px rgba(0,0,0,.15);animation:sm-pop .18s ease-out}
 
 .sm-dialog{width:min(92vw,420px);max-height:min(80vh,560px);display:flex;flex-direction:column;background:var(--dsw-specific-panel-fill,#f5f6f8);color:var(--dsw-alias-label-primary,#17181c);border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;touch-action:auto;animation:sm-pop .2s cubic-bezier(.16,1,.3,1)}
 
@@ -390,9 +575,19 @@ window.__ModuleLoader__.load({
 .sm-tool-danger{color:#e05252;border-color:rgba(224,82,82,.25)}
 .sm-tool-danger:hover{background:rgba(224,82,82,.06)}
 
+.sm-filter{display:flex;gap:6px;padding:2px 0 8px;flex-wrap:wrap}
+.sm-filter-btn{border:1px solid #e7e8ec;background:#fff;color:#686c76;font:inherit;font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;cursor:pointer;transition:all .12s ease}
+.sm-filter-btn:active{transform:scale(.96)}
+.sm-filter-on{background:#4f7cff;border-color:#4f7cff;color:#fff}
+
+.sm-pull{padding:8px;text-align:center;color:#9ca0aa;font-size:11px}
+.sm-pulling{transition:transform .1s ease}
+
 .sm-list{display:flex;flex-direction:column;gap:8px}
 
 .sm-card{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:16px;background:#fff;border:1px solid #e7e8ec;box-shadow:0 2px 8px rgba(0,0,0,.03);cursor:pointer;position:relative;transition:transform .12s ease,box-shadow .2s ease,border-color .2s ease;-webkit-tap-highlight-color:transparent;animation:sm-fadein .2s ease-out}
+.sm-card-expanded{flex-wrap:wrap;align-items:stretch}
+.sm-ws-rows{width:100%;display:flex;flex-direction:column;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #e7e8ec}
 .sm-card:active{transform:scale(.985);box-shadow:0 2px 12px rgba(0,0,0,.06)}
 @media(hover:hover){.sm-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.06);border-color:#d0d2d8}}
 .sm-card-selected{background:#f0f4ff;border-color:rgba(79,124,255,.25);box-shadow:0 2px 12px rgba(79,124,255,.06)}
@@ -431,6 +626,10 @@ window.__ModuleLoader__.load({
 .sm-tab{background:#2e3340;color:#8b91a0}
 .sm-tab-on{background:#4f7cff;color:#fff}
 .sm-tool-btn{background:#262a33;border-color:#363c48;color:#d3d7e0}
+.sm-filter-btn{background:#262a33;border-color:#363c48;color:#8b91a0}
+.sm-filter-on{background:#4f7cff;border-color:#4f7cff;color:#fff}
+.sm-pull{color:#6b7080}
+.sm-ws-rows{border-top-color:#363c48}
 .sm-card{background:#262a33;border-color:#363c48}
 .sm-card:active{box-shadow:0 2px 12px rgba(0,0,0,.2)}
 .sm-card-selected{background:rgba(79,124,255,.12);border-color:rgba(79,124,255,.3)}
@@ -456,13 +655,19 @@ window.__ModuleLoader__.load({
       return () => tag.remove()
     }
 
-    const inject = ['slots', 'locale']
+    const inject = ['slots', 'locale', 'layout']
 
     function apply (ctx) {
       const removeStyle = injectStyle()
+      if (ctx.layout) {
+        openSidebar = () => {
+          const frame = document.querySelector('[data-sidebar-collapsed]')
+          if (frame?.getAttribute('data-sidebar-collapsed') === 'true') ctx.layout.toggleSidebar()
+        }
+      }
       ctx.effect(() => {
         ctx.locale.register(NS, { zh, en })
-        return () => { if (ctx.locale.unregister) ctx.locale.unregister(NS); removeStyle() }
+        return () => { if (ctx.locale.unregister) ctx.locale.unregister(NS); removeStyle(); openSidebar = null }
       }, 'dsh-session-manager: locale')
 
       ctx.slots.inject('sidebar.footer.action', () => {

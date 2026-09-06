@@ -49,7 +49,22 @@ async function fixture (options = {}) {
       }
     },
   }
-  const workspaceRegistry = { archivedSessionIds: new Set([archivedId, otherId, numericId, prefixedId]) }
+  const workspaceState = {
+    archivedSessionIds: [archivedId, otherId, numericId, prefixedId],
+    initialized: true,
+    workspaceIds: ['ws-1', 'ws-2'],
+    pendingMutation: undefined
+  }
+  const workspaceRegistry = {
+    get archivedSessionIds () { return workspaceState.archivedSessionIds },
+    list: () => [
+      { id: 'ws-1', title: 'demo', path: '/work/demo', sessionIds: [archivedId], updatedAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'ws-2', title: 'prefixed', path: '/prefixed', sessionIds: [prefixedId], updatedAt: '2026-01-01T00:00:00.000Z' }
+    ],
+    enqueueOperation: (operation) => operation(),
+    requireState: () => workspaceState,
+    setState: async (next) => { workspaceState.archivedSessionIds = next.archivedSessionIds }
+  }
   const sessions = { list: async () => [{ id: liveId, header: { id: liveId } }] }
   const store = createArchiveStore({ sessionPersistence, workspaceRegistry, sessions, sessionsRoot, trashRoot, now: () => 30, ...options })
   return { root, source, sessionsRoot, trashRoot, store, sessionPersistence, headers }
@@ -163,5 +178,28 @@ test('accepts session-prefixed ids in validation, listing, and trash', async () 
     assert.ok(preview.lastUser || preview.lastAssistant)
     assert.deepEqual(await f.store.trash([prefixedId]), { moved: [prefixedId] })
     assert.deepEqual(await f.store.restore([prefixedId]), { restored: [prefixedId] })
+  } finally { await rm(f.root, { recursive: true, force: true }) }
+})
+
+test('lists workspaces with archive counts from the registry', async () => {
+  const f = await fixture()
+  try {
+    const workspaces = await f.store.listWorkspaces()
+    assert.deepEqual(workspaces.map((ws) => ({ title: ws.title, path: ws.path, sessionCount: ws.sessionCount, archivedCount: ws.archivedCount })), [
+      { title: 'demo', path: '/work/demo', sessionCount: 1, archivedCount: 1 },
+      { title: 'prefixed', path: '/prefixed', sessionCount: 1, archivedCount: 1 }
+    ])
+  } finally { await rm(f.root, { recursive: true, force: true }) }
+})
+
+test('unarchive removes ids from the registry archived set', async () => {
+  const f = await fixture()
+  try {
+    assert.deepEqual(await f.store.unarchive([archivedId, prefixedId]), { unarchived: [archivedId, prefixedId] })
+    const archived = f.store.listArchived
+    const entries = await archived()
+    assert.equal(entries.some((entry) => entry.id === archivedId), false)
+    assert.equal(entries.some((entry) => entry.id === prefixedId), false)
+    assert.equal(entries.some((entry) => entry.id === otherId), true)
   } finally { await rm(f.root, { recursive: true, force: true }) }
 })

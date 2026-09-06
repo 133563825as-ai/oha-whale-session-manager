@@ -87,6 +87,12 @@ async function dispatch (req, res, store) {
     return sendJson(res, 200, { ok: true, archives })
   }
 
+  if (pathname === '/session-manager/workspaces') {
+    if (method !== 'GET') return methodNotAllowed(res, 'GET')
+    const workspaces = await store.listWorkspaces()
+    return sendJson(res, 200, { ok: true, workspaces })
+  }
+
   if (pathname === '/session-manager/trash') {
     if (method === 'GET') {
       const trash = await store.listTrash()
@@ -99,6 +105,14 @@ async function dispatch (req, res, store) {
       return sendJson(res, 200, { ok: true, ...result })
     }
     return methodNotAllowed(res, 'GET, POST')
+  }
+
+  if (pathname === '/session-manager/unarchive') {
+    if (method !== 'POST') return methodNotAllowed(res, 'POST')
+    const body = await parseJsonBody(req)
+    const ids = validateIds(body.ids)
+    const result = await store.unarchive(ids)
+    return sendJson(res, 200, { ok: true, ...result })
   }
 
   if (pathname === '/session-manager/restore') {
