@@ -189,6 +189,15 @@ test('accepts session-prefixed ids in trash operations', async () => {
   assert.deepEqual(calls, [[prefixedId]])
 })
 
+test('serves the session manager mascot icon', async () => {
+  const handler = route()
+  const res = response()
+  await handler(request('GET', null, '/session-manager/icon'), res)
+  assert.equal(res.status, 200)
+  assert.equal(res.headers['Content-Type'], 'image/png')
+  assert.ok(Buffer.byteLength(res.body) > 0)
+})
+
 test('returns 404 for unknown paths and hides internal errors', async () => {
   const handler = route()
   const notFoundRes = response()

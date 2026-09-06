@@ -1,5 +1,9 @@
+import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+
 const SESSION_ID = /^(session-)?[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const MAX_IDS = 100
+const MASCOT_PATH = fileURLToPath(new URL('../assets/mascot.png', import.meta.url))
 
 class HttpError extends Error {
   constructor (status, code, message) {
@@ -129,6 +133,22 @@ async function dispatch (req, res, store) {
     const ids = validateIds(body.ids, { allowOmit: true })
     const result = await store.purge(ids)
     return sendJson(res, 200, { ok: true, ...result })
+  }
+
+  if (pathname === '/session-manager/icon') {
+    if (method !== 'GET') return methodNotAllowed(res, 'GET')
+    try {
+      const data = await readFile(MASCOT_PATH)
+      res.writeHead(200, {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=3600',
+        'Content-Length': data.length
+      })
+      res.end(data)
+      return
+    } catch {
+      return notFound(res)
+    }
   }
 
   return notFound(res)

@@ -197,13 +197,23 @@ window.__ModuleLoader__.load({
     function SidebarAction (props) {
       const t = makeT(props.t)
       const wide = props.wide !== false
+      const logo = react.createElement('img', { src: '/api-dashboard/icon', className: 'sm-action-logo', alt: '哦鲸鲸', onError: (e) => { e.currentTarget.style.display = 'none' } })
+      const content = wide
+        ? react.createElement('span', { className: 'sm-action-content' },
+            logo,
+            react.createElement('span', { className: 'sm-action-text' },
+              react.createElement('span', { className: 'sm-action-title' }, '哦鲸鲸'),
+              react.createElement('span', { className: 'sm-action-sub' }, t.sessionManager)
+            )
+          )
+        : logo
       return react.createElement('div', { className: 'sm-action-wrap' },
         react.createElement('button', {
           className: 'sm-action',
           'aria-label': t.sessionManagerAria,
           title: t.sessionManager,
           onClick: openModal
-        }, wide ? t.sessionManager : IconClipboard)
+        }, content)
       )
     }
 
@@ -390,9 +400,8 @@ window.__ModuleLoader__.load({
         }
 
         const iconBg = isCurrent ? '#4f7cff' : (row.missing ? '#9ca0aa' : '#eef2ff')
-        const iconColor = isCurrent ? '#fff' : (row.missing ? '#fff' : '#4f7cff')
-        children.push(react.createElement('div', { key: 'icon', className: 'sm-card-icon', style: { background: iconBg, color: iconColor } },
-          row.missing ? '!' : (title[0] ? title[0].toUpperCase() : '?')
+        children.push(react.createElement('div', { key: 'icon', className: 'sm-card-icon', style: { background: iconBg } },
+          react.createElement('img', { className: 'sm-card-icon-img', src: '/session-manager/icon', alt: '哦鲸鲸' })
         ))
 
         const infoChildren = []
@@ -436,7 +445,7 @@ window.__ModuleLoader__.load({
       function renderWorkspaceGroup (ws, rows) {
         const children = []
         children.push(react.createElement('div', { key: 'icon', className: 'sm-ws-icon' },
-          (ws.title || '?')[0] ? (ws.title || '?')[0].toUpperCase() : '?'
+          react.createElement('img', { className: 'sm-ws-icon-img', src: '/session-manager/icon', alt: '哦鲸鲸' })
         ))
         const info = []
         info.push(react.createElement('div', { key: 'title', className: 'sm-ws-title' }, ws.title))
@@ -451,7 +460,9 @@ window.__ModuleLoader__.load({
 
       function renderUngroupedGroup (rows) {
         const children = [
-          react.createElement('div', { key: 'icon', className: 'sm-ws-icon' }, '?'),
+          react.createElement('div', { key: 'icon', className: 'sm-ws-icon' },
+            react.createElement('img', { className: 'sm-ws-icon-img', src: '/session-manager/icon', alt: '哦鲸鲸' })
+          ),
           react.createElement('div', { key: 'info', className: 'sm-ws-info' },
             react.createElement('div', { key: 'title', className: 'sm-ws-title' }, t.ungrouped),
             react.createElement('div', { key: 'count', className: 'sm-ws-meta' }, t.archivedCount.replace('{count}', String(rows.length)))
@@ -567,6 +578,11 @@ window.__ModuleLoader__.load({
 .sm-action:hover{background:var(--dsw-alias-button-floating-hover,#f5f6f8);box-shadow:0 2px 8px rgba(0,0,0,.06)}
 .sm-action:active{transform:scale(.985);opacity:.9}
 .sm-action svg{flex:none;font-size:1.125rem}
+.sm-action-content{display:inline-flex;align-items:center;gap:.5rem;min-width:0;flex:1}
+.sm-action-logo{width:20px;height:20px;border-radius:6px;object-fit:contain;flex:none}
+.sm-action-text{display:flex;flex-direction:column;align-items:flex-start;min-width:0;line-height:1.15}
+.sm-action-title{font-size:13px;font-weight:700;color:var(--dsw-alias-label-primary,#17181c);white-space:nowrap}
+.sm-action-sub{font-size:10px;color:var(--dsw-alias-label-secondary,#777b84);white-space:nowrap}
 
 [data-shell-overlay]{z-index:100!important}
 
@@ -621,7 +637,8 @@ window.__ModuleLoader__.load({
 
 .sm-cb{width:16px;height:16px;flex:none;margin-top:2px;accent-color:#4f7cff}
 
-.sm-card-icon{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none;font-size:15px;font-weight:800;line-height:1}
+.sm-card-icon{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none;font-size:15px;font-weight:800;line-height:1;overflow:hidden}
+.sm-card-icon-img,.sm-ws-icon-img{width:100%;height:100%;object-fit:contain;display:block;border-radius:inherit}
 
 .sm-card-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .sm-card-title{font-size:13px;font-weight:700;color:var(--dsw-alias-label-primary,#17181c);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

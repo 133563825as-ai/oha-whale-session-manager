@@ -10,6 +10,7 @@ const createdFiles = [
   'cordis.patch.yml',
   'src/index.js',
   'client/client.js',
+  'assets/mascot.png',
   'README.md',
   'test/client-static.test.mjs'
 ]
@@ -31,7 +32,7 @@ test('package.json declares the complete bundle contract', async () => {
     './client': './client/client.js',
     './package.json': './package.json'
   })
-  assert.deepEqual(packageJson.files, ['src', 'client', 'cordis.patch.yml', 'README.md'])
+  assert.deepEqual(packageJson.files, ['src', 'client', 'assets', 'cordis.patch.yml', 'README.md'])
   assert.equal(packageJson.dsh?.bundle?.patch, './cordis.patch.yml')
   assert.equal(packageJson.dsh?.client?.platform, 'web')
   assert.deepEqual(packageJson.dsh?.client?.inject, [
