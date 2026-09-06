@@ -1,10 +1,9 @@
 window.__ModuleLoader__.load({
   id: 'dsh-session-manager',
   factory: (require) => {
-    const inject = [
-      'sidebar.footer.action',
-      'shell.overlay'
-    ]
+    const inject = ['slots', 'locale']
+    // UI seats reserved for later registration tasks.
+    const seats = ['sidebar.footer.action', 'shell.overlay']
 
     function apply(ctx) {}
 

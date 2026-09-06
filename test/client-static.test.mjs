@@ -1,24 +1,83 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import vm from 'node:vm'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
+const createdFiles = [
+  'package.json',
+  'cordis.patch.yml',
+  'src/index.js',
+  'client/client.js',
+  'README.md',
+  'test/client-static.test.mjs'
+]
+const emojiPattern = /[\u{1F000}-\u{1FAFF}]/u
 
-test('package.json declares the session manager bundle contract', async () => {
-  const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'))
+async function read(relativePath) {
+  return readFile(resolve(root, relativePath), 'utf8')
+}
+
+test('package.json declares the complete bundle contract', async () => {
+  const packageJson = JSON.parse(await read('package.json'))
 
   assert.equal(packageJson.name, 'dsh-session-manager')
+  assert.equal(packageJson.version, '0.1.0')
+  assert.equal(packageJson.type, 'module')
+  assert.equal(packageJson.main, 'src/index.js')
+  assert.deepEqual(packageJson.exports, {
+    '.': './src/index.js',
+    './client': './client/client.js',
+    './package.json': './package.json'
+  })
+  assert.deepEqual(packageJson.files, ['src', 'client', 'cordis.patch.yml', 'README.md'])
   assert.equal(packageJson.dsh?.bundle?.patch, './cordis.patch.yml')
   assert.equal(packageJson.dsh?.client?.platform, 'web')
-  assert.ok(packageJson.exports?.['./client'])
+  assert.deepEqual(packageJson.dsh?.client?.inject, [
+    '@deepseek-ai/dsh-client-runtime',
+    '@deepseek-ai/dsh-client-locale',
+    '@deepseek-ai/dsh-client-ui-slots',
+    '@deepseek-ai/dsh-client-ui-primitives',
+    '@deepseek-ai/dsh-client-ui-sidebar',
+    '@deepseek-ai/dsh-client-ui-layout'
+  ])
 })
 
-test('client loader uses required DSH wrapper and seat names without emoji', async () => {
-  const client = await readFile(resolve(root, 'client/client.js'), 'utf8')
+test('patch declares the session manager id and name', async () => {
+  const patch = await read('cordis.patch.yml')
 
-  assert.match(client, /window\.__ModuleLoader__\.load/)
-  assert.match(client, /sidebar\.footer\.action/)
-  assert.match(client, /shell\.overlay/)
-  assert.doesNotMatch(client, /[\u{1F000}-\u{1FAFF}]/u)
+  assert.match(patch, /id:\s*dsh-session-manager/)
+  assert.match(patch, /name:\s*dsh-session-manager/)
+})
+
+test('host entry exports the required plugin contract', async () => {
+  const host = await import(resolve(root, 'src/index.js'))
+
+  assert.equal(host.name, 'dsh-session-manager')
+  assert.deepEqual(host.inject, ['webServer', 'sessionPersistence', 'workspaceRegistry', 'sessions'])
+  assert.equal(typeof host.apply, 'function')
+})
+
+test('client loader returns real inject and apply exports', async () => {
+  const client = await read('client/client.js')
+  let loaded
+  vm.runInNewContext(client, {
+    window: {
+      __ModuleLoader__: {
+        load(module) {
+          loaded = module.factory(() => {})
+        }
+      }
+    }
+  })
+
+  assert.deepEqual(Array.from(loaded.inject), ['slots', 'locale'])
+  assert.equal(typeof loaded.apply, 'function')
+})
+
+test('created Task 1 files contain no Unicode emoji', async () => {
+  for (const relativePath of createdFiles) {
+    assert.doesNotMatch(await read(relativePath), emojiPattern, relativePath)
+  }
 })
