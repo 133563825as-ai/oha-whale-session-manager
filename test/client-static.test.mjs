@@ -92,6 +92,15 @@ test('client declares modal behavior and archive routes', async () => {
   assert.match(source, /92vw/)
 })
 
+test('client contains archive and trash actions', async () => {
+  const source = await read('client/client.js')
+  for (const text of ['归档', '回收站', '选择', '全选', '删除所选', '恢复', '清空回收站', '最后一条用户消息']) {
+    assert.match(source, new RegExp(text))
+  }
+  assert.match(source, /confirm|window\.confirm/)
+  assert.match(source, /currentSession|useSessions/)
+})
+
 test('created Task 1 files contain no Unicode emoji', async () => {
   for (const relativePath of createdFiles) {
     assert.doesNotMatch(await read(relativePath), emojiPattern, relativePath)
