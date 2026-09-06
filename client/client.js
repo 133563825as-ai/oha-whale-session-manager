@@ -277,12 +277,12 @@ window.__ModuleLoader__.load({
       const [refreshing, setRefreshing] = react.useState(false)
       const [filter, setFilter] = react.useState('all')
       const [workspaceFilter, setWorkspaceFilter] = react.useState('all')
-      const [pullY, setPullY] = react.useState(0)
       const [busyIds, setBusyIds] = react.useState(new Set())
       const [error, setError] = react.useState('')
       const loadedRef = react.useRef({ archive: false, workspace: false, trash: false })
-      const refreshZoneRef = react.useRef(null)
+      const bodyRef = react.useRef(null)
       const touchStartYRef = react.useRef(0)
+      const touchCurrentYRef = react.useRef(0)
 
       const startBusy = (id) => setBusyIds(prev => { const n = new Set(prev); n.add(id); return n })
       const endBusy = (id) => setBusyIds(prev => { const n = new Set(prev); n.delete(id); return n })
@@ -423,15 +423,18 @@ window.__ModuleLoader__.load({
         catch (e) { setError(e.message || t.errorPrefix) } finally { endBusy('*') }
       }
 
-      const onTouchStart = (e) => { touchStartYRef.current = e.touches[0].clientY }
+      const onTouchStart = (e) => {
+        touchStartYRef.current = e.touches[0].clientY
+        touchCurrentYRef.current = e.touches[0].clientY
+      }
       const onTouchMove = (e) => {
-        if (!refreshZoneRef.current) return
-        const delta = e.touches[0].clientY - touchStartYRef.current
-        if (delta > 0) setPullY(Math.min(delta, 80))
+        const el = bodyRef.current
+        if (!el || el.scrollTop > 0) return
+        touchCurrentYRef.current = e.touches[0].clientY
       }
       const onTouchEnd = () => {
-        if (pullY > 48) manualRefresh()
-        setPullY(0)
+        const delta = touchCurrentYRef.current - touchStartYRef.current
+        if (delta > 50) manualRefresh()
       }
 
       /* --- card renderer --- */
@@ -580,16 +583,12 @@ window.__ModuleLoader__.load({
             react.createElement('button', { className: tab === 'archive' ? 'sm-tab sm-tab-on' : 'sm-tab', onClick: () => setTab('archive') }, t.archiveTab),
             react.createElement('button', { className: tab === 'trash' ? 'sm-tab sm-tab-on' : 'sm-tab', onClick: () => setTab('trash') }, t.trashTab)
           ),
-          react.createElement('div', { className: 'sm-body' },
+          react.createElement('div', {
+            ref: bodyRef,
+            className: 'sm-body',
+            onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: onTouchEnd
+          },
             tab === 'archive' ? react.createElement(react.Fragment, null, renderCategoryBar()) : null,
-            tab === 'archive' ? react.createElement('div', {
-              ref: refreshZoneRef,
-              className: 'sm-refresh-zone' + (pullY > 0 ? ' sm-refresh-active' : ''),
-              style: pullY > 0 ? { transform: 'translateY(' + pullY + 'px)' } : undefined,
-              onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: onTouchEnd
-            },
-              react.createElement('span', { className: 'sm-refresh-label' }, refreshing ? t.refreshing : t.pullHint)
-            ) : null,
             renderToolbar(),
             bodyChildren
           )
@@ -662,10 +661,6 @@ window.__ModuleLoader__.load({
 
 .sm-pull{padding:8px;text-align:center;color:#9ca0aa;font-size:11px}
 .sm-pulling{transition:transform .1s ease}
-.sm-refresh-zone{display:flex;align-items:center;justify-content:center;height:32px;margin:0 0 2px;color:#9ca0aa;font-size:11px;border-radius:10px;touch-action:none;transition:transform .08s ease}
-.sm-refresh-active{color:#4f7cff;background:rgba(79,124,255,.06)}
-.sm-refresh-label{pointer-events:none}
-
 .sm-list{display:flex;flex-direction:column;gap:8px}
 .sm-archive-groups{display:flex;flex-direction:column;gap:14px}
 .sm-ws-group{display:flex;flex-direction:column;gap:8px}
@@ -731,8 +726,6 @@ window.__ModuleLoader__.load({
 .sm-option:hover{background:rgba(79,124,255,.12)}
 .sm-option-on{color:#8ba4ff;background:rgba(79,124,255,.18)}
 .sm-pull{color:#6b7080}
-.sm-refresh-zone{color:#8b91a0}
-.sm-refresh-active{color:#8ba4ff;background:rgba(79,124,255,.12)}
 .sm-ws-icon{background:rgba(79,124,255,.18);color:#8ba4ff}
 .sm-ws-header{background:#262a33;border-color:#363c48}
 .sm-ws-title{color:#f2f4f8}
