@@ -237,7 +237,10 @@ window.__ModuleLoader__.load({
     function SidebarAction (props) {
       const t = makeT(props.t)
       const wide = props.wide !== false
-      const logo = react.createElement('img', { src: '/api-dashboard/icon', className: 'sm-action-logo', alt: '哦鲸鲸', onError: (e) => { e.currentTarget.style.display = 'none' } })
+      const [imgFailed, setImgFailed] = react.useState(false)
+      const logo = imgFailed
+        ? IconClipboard
+        : react.createElement('img', { src: '/api-dashboard/icon', className: 'sm-action-logo', alt: '哦鲸鲸', onError: () => setImgFailed(true) })
       const content = wide
         ? react.createElement('span', { className: 'sm-action-content' },
             logo,
