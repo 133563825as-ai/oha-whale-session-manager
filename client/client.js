@@ -746,11 +746,11 @@ window.__ModuleLoader__.load({
 
     function injectStyle () {
       if (typeof document === 'undefined') return () => {}
-      const ATTR = 'data-dsh-session-manager'
-      const existing = document.querySelector('style[' + ATTR + ']')
+      const existing = document.querySelector('style[data-plugin="dsh-session-manager"]')
       if (existing) { existing.textContent = CSS; return () => existing.remove() }
       const tag = document.createElement('style')
-      tag.setAttribute(ATTR, '')
+      tag.setAttribute('data-plugin', 'dsh-session-manager')
+      tag.setAttribute('data-dsh-session-manager', '')
       tag.textContent = CSS
       document.head.appendChild(tag)
       return () => tag.remove()
