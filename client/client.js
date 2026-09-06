@@ -512,7 +512,7 @@ window.__ModuleLoader__.load({
       }
       bodyChildren.push(body)
 
-      return react.createElement('div', { className: 'sm-backdrop sm-sidebar-backdrop', onClick: closeModal },
+      return react.createElement('div', { className: 'sm-backdrop', onClick: closeModal },
         react.createElement('div', {
           className: 'sm-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': t.dialogTitle,
           onClick: (e) => e.stopPropagation(), onPointerDown: (e) => e.stopPropagation()
@@ -551,11 +551,7 @@ window.__ModuleLoader__.load({
 .sm-action:active{transform:scale(.985);opacity:.9}
 .sm-action svg{flex:none;font-size:1.125rem}
 
-.sm-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(0,0,0,.35);animation:sm-fadein .15s ease-out;pointer-events:auto;touch-action:none}
-
-/* Centered modal, but anchored over the open sidebar column instead of the chat. */
-.sm-sidebar-backdrop{inset:0 auto 0 0;width:min(88vw,280px);background:rgba(0,0,0,.25);display:grid;place-items:center}
-.sm-sidebar-backdrop .sm-dialog{width:calc(100% - 16px);max-height:min(80vh,560px)}
+.sm-backdrop{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(0,0,0,.35);animation:sm-fadein .15s ease-out;pointer-events:auto;touch-action:none}
 
 .sm-dialog{width:min(92vw,420px);max-height:min(80vh,560px);display:flex;flex-direction:column;background:var(--dsw-specific-panel-fill,#f5f6f8);color:var(--dsw-alias-label-primary,#17181c);border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;touch-action:auto;animation:sm-pop .2s cubic-bezier(.16,1,.3,1)}
 
@@ -663,12 +659,6 @@ window.__ModuleLoader__.load({
 
     function apply (ctx) {
       const removeStyle = injectStyle()
-      if (ctx.layout) {
-        openSidebar = () => {
-          const frame = document.querySelector('[data-sidebar-collapsed]')
-          if (frame?.getAttribute('data-sidebar-collapsed') === 'true') ctx.layout.toggleSidebar()
-        }
-      }
       ctx.effect(() => {
         ctx.locale.register(NS, { zh, en })
         return () => { if (ctx.locale.unregister) ctx.locale.unregister(NS); removeStyle(); openSidebar = null }
