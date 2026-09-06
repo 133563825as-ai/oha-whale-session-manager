@@ -66,7 +66,10 @@ test('client loader returns real inject and apply exports', async () => {
     window: {
       __ModuleLoader__: {
         load(module) {
-          loaded = module.factory(() => {})
+          loaded = module.factory((name) => {
+            if (name === 'react') return { createElement: () => ({}) }
+            return {}
+          })
         }
       }
     }
@@ -74,6 +77,19 @@ test('client loader returns real inject and apply exports', async () => {
 
   assert.deepEqual(Array.from(loaded.inject), ['slots', 'locale'])
   assert.equal(typeof loaded.apply, 'function')
+})
+
+test('client declares modal behavior and archive routes', async () => {
+  const source = await read('client/client.js')
+  const requires = (text) => assert.match(source, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  for (const text of [
+    'sidebar.footer.action', 'shell.overlay', 'dsh-session-manager',
+    '/session-manager/archives', '/session-manager/trash',
+    'session-manager-backdrop'
+  ]) requires(text)
+  assert.match(source, /aria-modal(?:['"]\s*:\s*['"]true['"]|=["']true["'])/)
+  assert.match(source, /58vh/)
+  assert.match(source, /92vw/)
 })
 
 test('created Task 1 files contain no Unicode emoji', async () => {
