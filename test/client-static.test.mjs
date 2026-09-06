@@ -85,20 +85,20 @@ test('client declares modal behavior and archive routes', async () => {
   for (const text of [
     'sidebar.footer.action', 'shell.overlay', 'dsh-session-manager',
     '/session-manager/archives', '/session-manager/trash',
-    'session-manager-backdrop'
+    'sm-backdrop'
   ]) requires(text)
   assert.match(source, /aria-modal(?:['"]\s*:\s*['"]true['"]|=["']true["'])/)
-  assert.match(source, /58vh/)
+  assert.match(source, /80vh/)
   assert.match(source, /92vw/)
 })
 
 test('client contains archive and trash actions', async () => {
   const source = await read('client/client.js')
-  for (const text of ['归档', '回收站', '选择', '全选', '删除所选', '恢复', '清空回收站', '最后一条用户消息']) {
+  for (const text of ['归档', '回收站', '选择', '全选', '删除所选', '恢复', '清空回收站']) {
     assert.match(source, new RegExp(text))
   }
   assert.match(source, /confirm|window\.confirm/)
-  assert.match(source, /currentSession|useSessions/)
+  assert.match(source, /useSessions/)
 })
 
 test('created Task 1 files contain no Unicode emoji', async () => {

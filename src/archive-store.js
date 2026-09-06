@@ -122,8 +122,16 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
     if (!header) return { missing: true }
     const inspection = await sessionPersistence.inspect(id)
     const events = Array.isArray(inspection) ? inspection : (inspection?.events ?? [])
+    let firstUser
     let lastUser
     let lastAssistant
+    for (let index = 0; index < events.length; index += 1) {
+      const event = events[index]
+      const role = eventRole(event)
+      if (!isMessage(event)) continue
+      if (role === 'user' && firstUser === undefined) firstUser = eventText(event).slice(0, 280)
+      if (firstUser !== undefined) break
+    }
     for (let index = events.length - 1; index >= 0; index -= 1) {
       const event = events[index]
       const role = eventRole(event)
@@ -132,7 +140,8 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
       if (role === 'assistant' && lastAssistant === undefined) lastAssistant = eventText(event).slice(0, 280)
       if (lastUser !== undefined && lastAssistant !== undefined) break
     }
-    return { id, title: deriveTitle(header), updatedAt: deriveUpdatedAt(header, events), cwd: header.cwd, lastUser, lastAssistant }
+    const cwdBase = header.cwd ? header.cwd.replace(/\/+$/, '').split('/').pop() || header.cwd : ''
+    return { id, title: deriveTitle(header), cwd: header.cwd, cwdBase, updatedAt: deriveUpdatedAt(header, events), firstUser, lastUser, lastAssistant }
   }
 
   async function listArchived () {

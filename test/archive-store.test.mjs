@@ -88,8 +88,10 @@ test('previews newest DSH messages and text parts truncated to 280 code units', 
   const f = await fixture()
   try {
     const preview = await f.store.previewSession(archivedId)
+    assert.equal(preview.firstUser, 'old user')
     assert.equal(preview.lastUser, 'new user '.repeat(100).slice(0, 280))
     assert.equal(preview.lastAssistant, 'new assistant')
+    assert.equal(preview.cwdBase, 'demo')
   } finally { await rm(f.root, { recursive: true, force: true }) }
 })
 
