@@ -76,7 +76,9 @@ function isInside (root, target) {
 }
 
 export function createArchiveStore ({ sessionPersistence, workspaceRegistry, sessions, sessionsRoot, trashRoot, now = () => new Date().toISOString(), writeManifest = writeFile }) {
-  const getHeaders = () => sessionPersistence.list()
+  // `sessionPersistence.list()` resolves to `{ header, revision, ... }` snapshots
+  // (SessionPersistenceSnapshot), never bare headers.
+  const getHeaders = async () => (await sessionPersistence.list()).map((snapshot) => snapshot.header)
   const archiveIds = () => new Set(workspaceRegistry.archivedSessionIds ?? [])
 
   async function headerFor (id, headers) {
@@ -116,12 +118,29 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
     }
   }
 
+  /**
+   * Read one stored session's event log. The persistence service exposes no
+   * `inspect`; the supported cold read is a read handle over the log, exactly
+   * as the session-query cold reader does it.
+   */
+  async function readStoredEvents (id) {
+    const handle = await sessionPersistence.open(id, 'read')
+    let read
+    try {
+      read = await handle.read(0)
+    } catch (error) {
+      await handle.close().catch(() => {})
+      throw error
+    }
+    await handle.close().catch(() => {})
+    return Array.isArray(read?.events) ? read.events : []
+  }
+
   async function previewSession (id, headers) {
     requireSessionId(id)
     const header = await headerFor(id, headers)
     if (!header) return { missing: true }
-    const inspection = await sessionPersistence.inspect(id)
-    const events = Array.isArray(inspection) ? inspection : (inspection?.events ?? [])
+    const events = await readStoredEvents(id)
     let firstUser
     let lastUser
     let lastAssistant
@@ -151,8 +170,10 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
       const header = await headerFor(id, headers)
       if (!header) return null
       try {
-        const artifactPath = sessionPersistence.locate(header).path
-        if (!(await exists(artifactPath))) {
+        // `locate()` names the CURRENT generation, so an unmigrated older log
+        // (for example a restored v0 session) has no file there even though it
+        // reads fine. `stat()` is the documented existence probe.
+        if (await sessionPersistence.stat(id) === undefined) {
           return { id, title: deriveTitle(header), updatedAt: deriveUpdatedAt(header), cwd: header.cwd, missing: true }
         }
         return await previewSession(id, headers)
@@ -236,9 +257,9 @@ export function createArchiveStore ({ sessionPersistence, workspaceRegistry, ses
       if (!header) throw new Error(`archived session not found: ${id}`)
       const sourceDir = sourceDirFor(header)
       validateSourceDir(sourceDir)
-      const artifactPath = sessionPersistence.locate(header).path
       const destination = join(trashRoot, id)
-      if (!(await exists(artifactPath))) throw new Error(`archived session not materialized: ${id}`)
+      // Same as listArchived: probe with `stat()`, not with the current-generation path.
+      if (await sessionPersistence.stat(id) === undefined) throw new Error(`archived session not materialized: ${id}`)
       if (await exists(destination)) throw new Error(`destination collision: ${id}`)
       const manifest = { version: 1, sessionId: id, originalDir: sourceDir, title: deriveTitle(header), cwd: header.cwd, updatedAt: deriveUpdatedAt(header), deletedAt: now() }
       await mkdir(trashRoot, { recursive: true })

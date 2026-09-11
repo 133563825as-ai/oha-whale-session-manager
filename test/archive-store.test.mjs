@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, readFile, writeFile, rm, access } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { createArchiveStore } from '../src/archive-store.js'
 
 const archivedId = '11111111-1111-4111-8111-111111111111'
@@ -17,11 +17,13 @@ async function fixture (options = {}) {
   const trashRoot = join(root, 'trash')
   const source = join(sessionsRoot, 'archived')
   await mkdir(source, { recursive: true })
+  // Deliberately the OLD generation filename: a restored v0 log that was never
+  // migrated. `locate()` names session.v3.jsonl.zstd, which does not exist here.
   await writeFile(join(source, 'session.jsonl.zstd'), 'artifact')
   await writeFile(join(source, 'metadata.json'), 'keep me')
   const prefixedSource = join(sessionsRoot, prefixedId)
   await mkdir(prefixedSource, { recursive: true })
-  await writeFile(join(prefixedSource, 'session.jsonl.zstd'), 'prefixed artifact')
+  await writeFile(join(prefixedSource, 'session.v3.jsonl.zstd'), 'prefixed artifact')
   const headers = [
     { id: archivedId, version: 0, createdAt: 1000, cwd: '/work/demo' },
     { id: otherId, version: 0, createdAt: 2000, cwd: '/gone' },
@@ -30,22 +32,43 @@ async function fixture (options = {}) {
     { id: prefixedId, version: 0, createdAt: 4000, cwd: '/prefixed' },
   ]
   const sessionPersistence = {
-    list: async () => headers,
+    // Real contract: list() resolves to { header, revision, ... } snapshots.
+    list: async () => headers.map((header) => ({ header, revision: 'rev-1' })),
+    // Real contract: stat() resolves whichever generation is on disk, so it finds
+    // an older (unmigrated) log that `locate()` cannot name.
+    stat: async (id) => {
+      const header = headers.find((entry) => entry.id === id)
+      if (header === undefined) return undefined
+      const dir = dirname(sessionPersistence.locate(header).path)
+      const generations = ['session.v3.jsonl.zstd', 'session.v2.jsonl.zstd', 'session.v1.jsonl.zstd', 'session.jsonl.zstd']
+      for (const name of generations) {
+        if (await has(join(dir, name))) return { header, revision: 'rev-1' }
+      }
+      return undefined
+    },
+    // Real contract: locate() names the CURRENT generation only.
     locate: (meta) => {
       if (meta.id === otherId && options.locateFailure) throw new Error('locate failed')
       const dir = meta.id === archivedId ? 'archived' : meta.id
-      return { path: join(sessionsRoot, `${dir}/session.jsonl.zstd`) }
+      return { path: join(sessionsRoot, `${dir}/session.v3.jsonl.zstd`) }
     },
-    inspect: async (id) => {
-      if (id === otherId && options.inspectFailure) throw new Error('inspect failed')
+    // Real contract: a cold read opens a read handle; there is no `inspect`.
+    open: async (id) => {
+      if (id === otherId && options.readFailure) throw new Error('open failed')
       return {
-        meta: { version: 0, id, createdAt: 1000, cwd: '/work' },
-        events: [
-          { type: 'user/message', seq: 1, time: 1000, data: { id: 'm1', role: 'user', content: [{ type: 'text', text: 'old user' }], source: { kind: 'user' } } },
-          { type: 'assistant/message', seq: 2, time: 2000, data: { turn: 1, step: 1, message: { id: 'm2', role: 'assistant', content: [{ type: 'text', text: 'old assistant' }], source: { kind: 'model', provider: 'x', model: 'y' } } } },
-          { type: 'user/message', seq: 3, time: 3000, data: { id: 'm3', role: 'user', content: [{ type: 'text', text: 'new user ' .repeat(100) }], source: { kind: 'user' } } },
-          { type: 'assistant/message', seq: 4, time: 4000, data: { turn: 2, step: 1, message: { id: 'm4', role: 'assistant', content: [{ type: 'text', text: 'new assistant' }], source: { kind: 'model', provider: 'x', model: 'y' } } } },
-        ],
+        id,
+        header: headers.find((header) => header.id === id),
+        async read () {
+          return {
+            events: [
+              { type: 'user/message', seq: 1, time: 1000, data: { id: 'm1', role: 'user', content: [{ type: 'text', text: 'old user' }], source: { kind: 'user' } } },
+              { type: 'assistant/message', seq: 2, time: 2000, data: { turn: 1, step: 1, message: { id: 'm2', role: 'assistant', content: [{ type: 'text', text: 'old assistant' }], source: { kind: 'model', provider: 'x', model: 'y' } } } },
+              { type: 'user/message', seq: 3, time: 3000, data: { id: 'm3', role: 'user', content: [{ type: 'text', text: 'new user ' .repeat(100) }], source: { kind: 'user' } } },
+              { type: 'assistant/message', seq: 4, time: 4000, data: { turn: 2, step: 1, message: { id: 'm4', role: 'assistant', content: [{ type: 'text', text: 'new assistant' }], source: { kind: 'model', provider: 'x', model: 'y' } } } },
+            ],
+          }
+        },
+        async close () {},
       }
     },
   }
@@ -90,8 +113,19 @@ test('lists archived sessions with numeric and date updatedAt ordering', async (
   } finally { await rm(f.root, { recursive: true, force: true }) }
 })
 
-test('degrades locate and inspect failures to missing rows', async () => {
-  const f = await fixture({ locateFailure: true, inspectFailure: true })
+test('unwraps persistence snapshots so archived sessions are never dropped', async () => {
+  const f = await fixture()
+  try {
+    const snapshots = await f.sessionPersistence.list()
+    assert.ok(snapshots.every((entry) => entry.header !== undefined), 'list() must resolve to { header, ... } snapshots')
+    const entries = await f.store.listArchived()
+    assert.equal(entries.length, 4)
+    assert.ok(entries.some((entry) => entry.id === archivedId), 'archived session must survive the snapshot unwrap')
+  } finally { await rm(f.root, { recursive: true, force: true }) }
+})
+
+test('degrades locate and read failures to missing rows', async () => {
+  const f = await fixture({ locateFailure: true, readFailure: true })
   try {
     const entries = await f.store.listArchived()
     assert.equal(entries.find((entry) => entry.id === otherId).missing, true)
