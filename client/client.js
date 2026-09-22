@@ -613,7 +613,7 @@ window.__ModuleLoader__.load({
 .sm-action-title{font-size:13px;font-weight:700;color:var(--dsw-alias-label-primary,#17181c);white-space:nowrap}
 .sm-action-sub{font-size:10px;color:var(--dsw-alias-label-secondary,#777b84);white-space:nowrap}
 
-[data-shell-overlay]{z-index:100!important}
+[data-shell-overlay]{z-index:1400!important}
 
 .sm-backdrop{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(0,0,0,.35);animation:sm-fadein .15s ease-out;pointer-events:auto;touch-action:none}
 
