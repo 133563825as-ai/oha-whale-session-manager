@@ -1,6 +1,20 @@
 {
   "name": "dsh-session-manager",
   "version": "1.1.0",
+  "description": "DeepSeek Harness Web 会话管理插件：归档会话浏览、批量删除与恢复、回收站，以及三层失效记录清理。",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh",
+    "session-manager",
+    "session",
+    "archive",
+    "trash"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/133563825as-ai/oha-whale-session-manager.git"
+  },
   "license": "MIT",
   "type": "module",
   "main": "src/index.js",
