@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { registerRoutes } from '../src/http.js'
+import { ArchiveError, LiveSessionError } from '../src/archive-store.js'
 
 const id = '11111111-1111-4111-8111-111111111111'
 const otherId = '22222222-2222-4222-8222-222222222222'
@@ -44,6 +45,37 @@ function route (store = {}) {
   })
   return routes.get('prefix:/session-manager')
 }
+
+test('answers a refused delete with its own reason instead of a bare 500', async () => {
+  const liveHandler = route({ trash: async () => { throw new LiveSessionError(id) } })
+  const liveRes = response()
+  await liveHandler(request('POST', JSON.stringify({ ids: [id] })), liveRes)
+  assert.equal(liveRes.status, 409)
+  const liveBody = JSON.parse(liveRes.body)
+  assert.equal(liveBody.ok, false)
+  assert.equal(liveBody.error.code, 'live-session')
+  assert.match(liveBody.error.message, /正在运行/)
+
+  const goneHandler = route({ trash: async () => { throw new ArchiveError(`archived session not found: ${id}`) } })
+  const goneRes = response()
+  await goneHandler(request('POST', JSON.stringify({ ids: [id] })), goneRes)
+  assert.equal(goneRes.status, 409)
+  assert.equal(JSON.parse(goneRes.body).error.code, 'not-archived')
+})
+
+test('cleanup takes no body and reports what it removed', async () => {
+  const handler = route({
+    cleanup: async () => ({ moved: ['11111111-1111-4111-8111-111111111111'], unarchived: 2, detached: 1, dropped: 3 })
+  })
+  const res = response()
+  await handler(request('POST', null, '/session-manager/cleanup'), res)
+  assert.equal(res.status, 200)
+  const body = JSON.parse(res.body)
+  assert.equal(body.ok, true)
+  assert.equal(body.moved.length, 1)
+  assert.equal(body.unarchived, 2)
+  assert.equal(body.dropped, 3)
+})
 
 test('rejects malformed JSON with invalid-json', async () => {
   const handler = route()

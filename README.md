@@ -11,8 +11,10 @@
 - 时间筛选（最近一天 / 最近七天 / 更早）
 - 下拉或按钮手动刷新，首次加载后不自动覆盖旧数据
 - 单个或批量移动到回收站
-- 恢复回收站会话
+- 恢复回收站会话（单个或批量）
+- 单个或批量彻底删除，不可恢复
 - 清空回收站并永久删除
+- 清理失效记录（孤儿会话、失效归档 / 工作区记账 / 投影缓存）
 
 ## 安装
 
@@ -23,6 +25,10 @@ dsh plugin --profile web add ./dsh-session-manager
 ## 语义
 
 删除会话先移动到回收站；清空回收站后无法恢复。正在打开的会话不能删除。插件不修改会话日志内容。
+
+删除一个会话会连带它的子代理会话（`parentSession` 血缘）一起移入回收站，避免子会话日志被留在磁盘上、以无标题条目回到侧边栏。删除同时清理三层记账：归档集、每个工作区的会话记账、以及持久化投影检查点——任何一层残留都会让已删除的会话重新出现在侧边栏。
+
+「清理失效记录」是兜底维护：扫描并移除祖先已不存在的孤儿子会话（移入回收站，可恢复），以及无法再解析到会话的失效归档 id、工作区记账和投影缓存。即使会话是被插件之外的路径删除的，也可以用它扫干净。
 
 ## 开发
 
@@ -40,5 +46,6 @@ npm run check
 - `POST /session-manager/unarchive` with `{ ids: string[] }`
 - `POST /session-manager/restore` with `{ ids: string[] }`
 - `POST /session-manager/purge` with `{ ids?: string[] }`
+- `POST /session-manager/cleanup`
 
 Source, tests, and documentation use no emoji.

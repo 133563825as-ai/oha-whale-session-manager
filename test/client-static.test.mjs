@@ -25,7 +25,7 @@ test('package.json declares the complete bundle contract', async () => {
   const packageJson = JSON.parse(await read('package.json'))
 
   assert.equal(packageJson.name, 'dsh-session-manager')
-  assert.equal(packageJson.version, '1.0.0')
+  assert.equal(packageJson.version, '1.1.0')
   assert.equal(packageJson.license, 'MIT')
   assert.equal(packageJson.type, 'module')
   assert.equal(packageJson.main, 'src/index.js')
@@ -103,6 +103,16 @@ test('client contains archive, workspace and trash actions', async () => {
   }
   assert.match(source, /confirm|window\.confirm/)
   assert.match(source, /useSessions/)
+})
+
+test('trash tab offers batch restore and permanent delete', async () => {
+  const source = await read('client/client.js')
+  for (const text of ['彻底删除', '恢复所选', 'purgeSelected', 'confirmPurgeSelected', 'sm-card-action-danger', '清理失效记录', '/session-manager/cleanup']) {
+    assert.match(source, new RegExp(text))
+  }
+  // Permanent delete of a selection must send the ids; only "empty the trash"
+  // may omit them and clear everything.
+  assert.match(source, /init\.body = JSON\.stringify\(\{ ids \}\)/)
 })
 
 test('client accepts DSH locale t as a translation function', async () => {

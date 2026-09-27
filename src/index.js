@@ -20,7 +20,10 @@ export function apply (ctx) {
     workspaceRegistry: ctx.workspaceRegistry,
     sessions: ctx.sessions,
     sessionsRoot: join(home, 'sessions'),
-    trashRoot: join(home, 'storages', 'dsh-session-manager', 'trash')
+    trashRoot: join(home, 'storages', 'dsh-session-manager', 'trash'),
+    // History lists and sidebar rows read these checkpoints, so a deleted
+    // session must take its checkpoint with it or it keeps showing up.
+    projectionCacheRoot: join(home, 'storages', 'session_projcache', 'sessions')
   })
 
   ctx.inject(['webServer'], (webCtx) => {

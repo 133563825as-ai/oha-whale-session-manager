@@ -1,9 +1,25 @@
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { ArchiveError } from './archive-store.js'
 
 const SESSION_ID = /^(session-)?[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const MAX_IDS = 100
 const MASCOT_PATH = fileURLToPath(new URL('../assets/mascot.png', import.meta.url))
+
+/**
+ * Operator-facing sentences for the store's own refusal reasons. Only
+ * {@link ArchiveError} carries one of these; any other failure keeps the
+ * generic body so no host path can leak through an error message.
+ */
+const ARCHIVE_REASONS = {
+  'live-session': '该会话正在运行，无法删除。请先结束该会话，或重启 dsh 后再试。',
+  'not-archived': '该会话不在归档列表中，可能已被删除或恢复。刷新后再试。',
+  unmaterialized: '该会话的日志不在磁盘上，无法移动。刷新列表以同步实际状态。',
+  collision: '目标位置已存在同名会话，操作被拒绝。请先处理该会话。',
+  'invalid-entry': '回收站条目已损坏，无法恢复或清理。',
+  'outside-root': '路径越界，操作被拒绝。',
+  'invalid-id': '会话 ID 无效。'
+}
 
 class HttpError extends Error {
   constructor (status, code, message) {
@@ -135,6 +151,14 @@ async function dispatch (req, res, store) {
     return sendJson(res, 200, { ok: true, ...result })
   }
 
+  // No body: the scan decides what is stale. Orphaned sessions land in the
+  // trash (recoverable); the rest are rows with nothing behind them.
+  if (pathname === '/session-manager/cleanup') {
+    if (method !== 'POST') return methodNotAllowed(res, 'POST')
+    const result = await store.cleanup()
+    return sendJson(res, 200, { ok: true, ...result })
+  }
+
   if (pathname === '/session-manager/icon') {
     if (method !== 'GET') return methodNotAllowed(res, 'GET')
     try {
@@ -164,6 +188,18 @@ export function registerRoutes ({ webServer, store, getCurrentSessionId }) {
       } catch (error) {
         if (error instanceof HttpError) {
           sendJson(res, error.status, { ok: false, error: { code: error.code, message: error.message } })
+          return
+        }
+        if (error instanceof ArchiveError) {
+          // A refusal this store raised on purpose: every message is a fixed
+          // sentence plus a session id, so it is safe to surface. This is what
+          // tells an operator "the session is still running" instead of the
+          // bare "操作失败" that made a refused delete indistinguishable from a
+          // broken one.
+          sendJson(res, 409, {
+            ok: false,
+            error: { code: error.reason, message: ARCHIVE_REASONS[error.reason] ?? error.message }
+          })
           return
         }
         sendJson(res, 500, { ok: false, error: { code: 'internal-error', message: '操作失败' } })
