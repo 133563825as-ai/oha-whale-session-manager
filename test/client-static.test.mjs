@@ -25,7 +25,7 @@ test('package.json declares the complete bundle contract', async () => {
   const packageJson = JSON.parse(await read('package.json'))
 
   assert.equal(packageJson.name, 'dsh-session-manager')
-  assert.equal(packageJson.version, '1.1.0')
+  assert.equal(packageJson.version, '1.1.1')
   assert.equal(packageJson.license, 'MIT')
   assert.equal(packageJson.type, 'module')
   assert.equal(packageJson.main, 'src/index.js')
